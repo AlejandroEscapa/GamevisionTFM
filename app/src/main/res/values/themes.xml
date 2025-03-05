@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tema de la pantalla de inicio -->
+    <style name="Gamevision" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Cambia el color de fondo -->
+        <item name="android:windowBackground">@color/gray_charcoal</item>
+
+        <!-- Personaliza el logo y otras configuraciones -->
+        <item name="android:icon">@drawable/gamevisionnoletters</item>
+    </style>
+</resources>

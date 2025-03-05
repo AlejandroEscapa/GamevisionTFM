@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "241921328888",
+    "project_id": "gamevision-tfm-b1b4d",
+    "storage_bucket": "gamevision-tfm-b1b4d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:241921328888:android:f3a1aeb7a40102d6735d0d",
+        "android_client_info": {
+          "package_name": "es.androidtfm.gamevision"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "241921328888-5b00a2okul9o60i05l79pc7ivdk16jke.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "es.androidtfm.gamevision",
+            "certificate_hash": "e9f99640aa4f2d46a11cf87ba034f50afa6f11e0"
+          }
+        },
+        {
+          "client_id": "241921328888-j0qu3hb5n55la6bugnqj30lna18u4i9a.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCwN3dsDzSF7qg0zRKiuuQSNHC3zKBrJMo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "241921328888-j0qu3hb5n55la6bugnqj30lna18u4i9a.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
