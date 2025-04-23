@@ -15,8 +15,14 @@ import kotlinx.coroutines.tasks.await
  * Descripción: 
  */
 
+/**
+ * ViewModel para la base de datos
+ *
+ * Contiene todos los metodos con los que se interactua con la base de datos.
+ */
+
 class DDBBViewModel : ViewModel() {
-    // Constantes
+
     companion object {
         private const val TAG = "DDBBViewModel"
         private const val USERS_COLLECTION = "users"
@@ -25,9 +31,10 @@ class DDBBViewModel : ViewModel() {
         private const val GAMES_COLLECTION = "games"
     }
 
+    // Instancia de Firestore
     private val db = FirebaseFirestore.getInstance()
 
-    // Flujos de estado
+    // Flujos de estado para los datos del usuario y el indicador de carga
     private val _userData = MutableStateFlow<HashMap<String, String>?>(null)
     val userData: StateFlow<HashMap<String, String>?> = _userData
 
@@ -35,8 +42,7 @@ class DDBBViewModel : ViewModel() {
     val isLoading: StateFlow<Boolean> = _isLoading
 
     /**
-     * Obtiene los datos del usuario desde Firestore
-     * @param email Email del usuario a buscar
+     * Obtiene los datos del usuario desde Firestore.
      */
     suspend fun fetchUserData(email: String) {
         _isLoading.value = true
@@ -45,9 +51,7 @@ class DDBBViewModel : ViewModel() {
     }
 
     /**
-     * Registra un nuevo usuario en Firestore
-     * @param formFields Map con los datos del formulario de registro
-     * @return Boolean indicando si el registro fue exitoso
+     * Registra un nuevo usuario en Firestore.
      */
     suspend fun registerUser(formFields: Map<String, String>): Boolean {
         val email = formFields["email"].orEmpty()
@@ -66,9 +70,7 @@ class DDBBViewModel : ViewModel() {
     }
 
     /**
-     * Actualiza los datos de un usuario en Firestore
-     * @param email Email del usuario a actualizar
-     * @param updatedFields Campos a actualizar
+     * Actualiza los datos del usuario en Firestore.
      */
     suspend fun updateUser(email: String, updatedFields: HashMap<String, String?>) {
         try {
@@ -82,38 +84,39 @@ class DDBBViewModel : ViewModel() {
         }
     }
 
-    suspend fun recoverProfilePicture(
-        email: String, onSuccess: (Uri?) -> Unit, onError: (Exception) -> Unit
-    ) {
-        db.collection("users").document(email)
-            .get()
-            .addOnSuccessListener { document ->
-                val uriString = document.getString("imageUri")
-                val uri = uriString?.let { Uri.parse(it) }
-                onSuccess(uri) // Devuelve la URI como Uri (o null si no existe)
-            }
-            .addOnFailureListener { exception ->
-                onError(exception) // Manejo del error
-            }
+    /**
+     * Recupera la URI de la imagen de perfil.
+     */
+    suspend fun recoverProfilePicture(email: String): Uri? {
+        return try {
+            val document = db.collection(USERS_COLLECTION)
+                .document(email)
+                .get()
+                .await()
+            document.getString("imageUri")?.let { Uri.parse(it) }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error recuperando imagen de perfil: ${e.message}")
+            null
+        }
     }
 
+    /**
+     * Actualiza la imagen de perfil del usuario en Firestore.
+     */
     suspend fun updateUserProfilePicture(email: String, imageUri: Uri) {
         try {
             db.collection(USERS_COLLECTION)
                 .document(email)
                 .update("imageUri", imageUri.toString())
                 .await()
-
+            Log.d(TAG, "Imagen de perfil actualizada para: $email")
         } catch (e: Exception) {
             Log.e(TAG, "Error actualizando imagen de perfil: ${e.message}")
         }
     }
 
     /**
-     * Verifica las credenciales de login
-     * @param email Email del usuario
-     * @param password Contraseña a verificar
-     * @return Boolean indicando si las credenciales son válidas
+     * Verifica las credenciales de inicio de sesión.
      */
     suspend fun loginCheck(email: String, password: String): Boolean {
         return try {
@@ -121,7 +124,6 @@ class DDBBViewModel : ViewModel() {
                 .document(email)
                 .get()
                 .await()
-
             document.exists() && document.getString("password") == password
         } catch (e: Exception) {
             Log.e(TAG, "Error en login: ${e.message}")
@@ -130,21 +132,13 @@ class DDBBViewModel : ViewModel() {
     }
 
     /**
-     * Manejo de juegos del usuario
-     */
-
-    /**
-     * Añade un juego a una colección específica del usuario
-     * @param email Email del usuario
-     * @param gameId ID del juego a añadir
-     * @param targetCollection Colección destino (games/history)
+     * Añade un juego a una colección específica del usuario.
      */
     suspend fun addGameToCollection(email: String, gameId: String, targetCollection: String) {
         if (email.isEmpty()) {
             Log.w(TAG, "Intento de añadir juego sin usuario autenticado")
             return
         }
-
         try {
             val gameData = hashMapOf("gameId" to gameId)
             db.collection(USERS_COLLECTION)
@@ -153,7 +147,6 @@ class DDBBViewModel : ViewModel() {
                 .document(gameId)
                 .set(gameData)
                 .await()
-
             Log.d(TAG, "Juego añadido a $targetCollection: $gameId")
         } catch (e: Exception) {
             Log.e(TAG, "Error añadiendo juego: ${e.message}")
@@ -161,35 +154,14 @@ class DDBBViewModel : ViewModel() {
     }
 
     /**
-     * Añade un juego a una colección específica del usuario
-     * @param email Email del usuario
-     * @param gameId ID del juego a añadir
+     * Añade un juego al historial del usuario.
      */
     suspend fun addGameToHistory(email: String, gameId: String) {
-        if (email.isEmpty()) {
-            Log.w(TAG, "Intento de añadir juego sin usuario autenticado")
-            return
-        }
-
-        try {
-            val gameData = hashMapOf("gameId" to gameId)
-            db.collection(USERS_COLLECTION)
-                .document(email)
-                .collection(HISTORY_COLLECTION)
-                .document(gameId)
-                .set(gameData)
-                .await()
-
-            Log.d(TAG, "Juego añadido a $HISTORY_COLLECTION: $gameId")
-        } catch (e: Exception) {
-            Log.e(TAG, "Error añadiendo juego: ${e.message}")
-        }
+        addGameToCollection(email, gameId, HISTORY_COLLECTION)
     }
 
     /**
-     * Elimina un juego de la colección de juegos del usuario
-     * @param email Email del usuario
-     * @param gameId ID del juego a eliminar
+     * Elimina un juego de la colección "playedlist" del usuario.
      */
     suspend fun removeGameFromUser(email: String, gameId: String) {
         try {
@@ -199,7 +171,6 @@ class DDBBViewModel : ViewModel() {
                 .document(gameId)
                 .delete()
                 .await()
-
             Log.d(TAG, "Juego eliminado: $email, $gameId")
         } catch (e: Exception) {
             Log.e(TAG, "Error eliminando juego: ${e.message}")
@@ -207,10 +178,7 @@ class DDBBViewModel : ViewModel() {
     }
 
     /**
-     * Obtiene los juegos de una colección específica del usuario
-     * @param email Email del usuario
-     * @param collectionName Nombre de la colección a consultar
-     * @return Lista de juegos
+     * Obtiene una lista de juegos de una colección específica del usuario.
      */
     suspend fun getUserGames(email: String, collectionName: String): List<Map<String, Any>> {
         return try {
@@ -219,7 +187,6 @@ class DDBBViewModel : ViewModel() {
                 .collection(collectionName)
                 .get()
                 .await()
-
             querySnapshot.documents.mapNotNull { it.data }
         } catch (e: Exception) {
             Log.e(TAG, "Error obteniendo juegos: ${e.message}")
@@ -228,33 +195,29 @@ class DDBBViewModel : ViewModel() {
     }
 
     /**
-     * Gestión de amigos
+     * Añade un amigo a la lista de amigos del usuario.
      */
-
     suspend fun addFriend(email: String, friendEmail: String) {
         try {
-            // Referencia al documento del amigo en la subcolección de amigos
             val friendRef = db.collection(USERS_COLLECTION)
                 .document(email)
                 .collection(FRIENDS_COLLECTION)
                 .document(friendEmail)
-
-            // Verificar si el amigo ya existe en la lista
             val friendSnapshot = friendRef.get().await()
             if (friendSnapshot.exists()) {
                 Log.w(TAG, "El amigo ya existe en la lista de amigos.")
                 return
             }
-
-            // Crear el documento del amigo sin campos adicionales
-            friendRef.set(mapOf<String, Any>()).await()
+            friendRef.set(emptyMap<String, Any>()).await()
             Log.d(TAG, "Amigo añadido correctamente.")
-
         } catch (e: Exception) {
             Log.e(TAG, "Error añadiendo amigo: ${e.message}")
         }
     }
 
+    /**
+     * Elimina un amigo de la lista de amigos del usuario.
+     */
     fun removeFriend(email: String, friendEmail: String) {
         try {
             db.collection(USERS_COLLECTION)
@@ -262,15 +225,14 @@ class DDBBViewModel : ViewModel() {
                 .collection(FRIENDS_COLLECTION)
                 .document(friendEmail)
                 .delete()
+            Log.d(TAG, "Amigo eliminado: $friendEmail")
         } catch (e: Exception) {
             Log.e(TAG, "Error eliminando amigo: ${e.message}")
         }
     }
 
     /**
-     * Obtiene la lista de amigos de un usuario
-     * @param email Email del usuario
-     * @return Lista de amigos con sus datos
+     * Obtiene la lista de amigos con correo y nombre de usuario.
      */
     suspend fun getFriendsList(email: String): List<Map<String, Any>> {
         return try {
@@ -279,26 +241,14 @@ class DDBBViewModel : ViewModel() {
                 .collection(FRIENDS_COLLECTION)
                 .get()
                 .await()
-
-            Log.d(TAG, "Lista de amigos obtenida correctamente.")
-            Log.d(TAG, querySnapshot.documents.toString())
-
             val friendsList = mutableListOf<Map<String, Any>>()
-
-            // Recuperar el email de cada amigo y usar getUser para obtener su username
             querySnapshot.documents.forEach { document ->
                 val friendEmail = document.id
                 val friendData = getUser(friendEmail)
-
-                if (friendData != null) {
-                    val friendUsername = friendData["username"] ?: "No username"
-                    friendsList.add(mapOf("email" to friendEmail, "username" to friendUsername))
-                } else {
-                    friendsList.add(mapOf("email" to friendEmail, "username" to "No username"))
-                }
+                val friendUsername = friendData?.get("username") ?: "No username"
+                friendsList.add(mapOf("email" to friendEmail, "username" to friendUsername))
             }
-
-            Log.d(TAG, "Friends: $friendsList") // Imprime la lista de amigos con email y username
+            Log.d(TAG, "Friends: $friendsList")
             friendsList
         } catch (e: Exception) {
             Log.e(TAG, "Error obteniendo amigos: ${e.message}")
@@ -306,26 +256,30 @@ class DDBBViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Publica un mensaje para el usuario.
+     */
     suspend fun publishMessage(email: String, message: String, hora: String) {
         try {
-            // Añadir un nuevo documento a la colección "messages" con un ID autogenerado
             db.collection(USERS_COLLECTION)
                 .document(email)
                 .collection("messages")
                 .add(
                     mapOf(
-                        "texto" to message, // Campo "texto" con el mensaje
-                        "hora" to hora      // Campo "hora" con la fecha/hora formateada
+                        "texto" to message,
+                        "hora" to hora
                     )
                 )
-                .await() // Esperar a que se complete la operación
-
+                .await()
             Log.d(TAG, "Mensaje publicado correctamente para el usuario: $email")
         } catch (e: Exception) {
             Log.e(TAG, "Error al publicar el mensaje: ${e.message}")
         }
     }
 
+    /**
+     * Elimina un mensaje del usuario.
+     */
     suspend fun deleteMessage(email: String, messageId: String) {
         try {
             db.collection(USERS_COLLECTION)
@@ -333,30 +287,37 @@ class DDBBViewModel : ViewModel() {
                 .collection("messages")
                 .document(messageId)
                 .delete()
+                .await()
+            Log.d(TAG, "Mensaje eliminado: $messageId")
         } catch (e: Exception) {
             Log.e(TAG, "Error al eliminar el mensaje: ${e.message}")
         }
     }
 
+    /**
+     * Obtiene los mensajes de la colección "messages" del usuario.
+     */
     suspend fun getFriendMessages(email: String): List<Map<String, Any>> {
-        val querySnapshot = db.collection(USERS_COLLECTION)
-            .document(email)
-            .collection("messages")
-            .get()
-            .await()
-
-        if (querySnapshot.isEmpty) return emptyList()
-
-        return querySnapshot.documents.mapNotNull { document ->
-            document.data?.toMutableMap()?.apply {
-                // Agregamos el identificador del mensaje al mapa
-                this["messageID"] = document.id
+        return try {
+            val querySnapshot = db.collection(USERS_COLLECTION)
+                .document(email)
+                .collection("messages")
+                .get()
+                .await()
+            if (querySnapshot.isEmpty) return emptyList()
+            querySnapshot.documents.mapNotNull { document ->
+                document.data?.toMutableMap()?.apply {
+                    this["messageID"] = document.id
+                }
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error obteniendo mensajes: ${e.message}")
+            emptyList()
         }
     }
 
     /**
-     * Funciones de utilidad
+     * Obtiene los datos del usuario desde Firestore y los convierte en un HashMap.
      */
     private suspend fun getUser(email: String): HashMap<String, String>? {
         return try {
@@ -364,7 +325,6 @@ class DDBBViewModel : ViewModel() {
                 .document(email)
                 .get()
                 .await()
-
             document.data?.mapValues { it.value.toString() } as? HashMap<String, String>
         } catch (e: Exception) {
             Log.e(TAG, "Error obteniendo usuario: ${e.message}")
@@ -372,26 +332,30 @@ class DDBBViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Añade un nuevo usuario a Firestore.
+     */
     private suspend fun addUser(email: String, user: HashMap<String, String?>) {
         try {
             db.collection(USERS_COLLECTION)
                 .document(email)
                 .set(user)
                 .await()
-
             Log.d(TAG, "Usuario registrado: $email")
         } catch (e: Exception) {
             Log.e(TAG, "Error registrando usuario: ${e.message}")
         }
     }
 
+    /**
+     * Verifica si el correo electrónico ya existe en Firestore.
+     */
     suspend fun checkEmailExists(email: String): Boolean {
         return try {
             val document = db.collection(USERS_COLLECTION)
                 .document(email)
                 .get()
                 .await()
-
             document.exists()
         } catch (e: Exception) {
             Log.e(TAG, "Error verificando email: ${e.message}")
@@ -400,7 +364,7 @@ class DDBBViewModel : ViewModel() {
     }
 
     /**
-     * Limpia los datos del usuario y cierra sesión
+     * Cierra la sesión del usuario.
      */
     suspend fun logout() {
         _userData.value = null

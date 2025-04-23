@@ -13,9 +13,22 @@ import java.util.Locale
  * Descripción: 
  */
 
-class NewsViewModel : ViewModel() {
-    private val apiKey = "860f15b681614860b332dc2f3cac8f02" // Reemplaza con tu API key
+/**
+ * ViewModel para la búsqueda de noticias
+ *
+ * Contiene todos los metodos con los que se interactua con la API de noticias.
+ */
 
+class NewsViewModel : ViewModel() {
+
+    // Clave de la API para acceder al servicio de noticias
+    private val apiKey = "860f15b681614860b332dc2f3cac8f02"
+
+    /**
+     * Obtiene noticias filtradas según una consulta.
+     * @param query: Término de búsqueda para filtrar las noticias.
+     * @return Lista de artículos filtrados y ordenados.
+     */
     suspend fun fetchFilteredNews(query: String): List<Article> {
         // Llamada a la API para obtener las noticias
         val response = RetrofitInstance.newsApi.getEverything(query, apiKey)
@@ -25,13 +38,18 @@ class NewsViewModel : ViewModel() {
             !it.title.contains("[Removed]", ignoreCase = true)
                     && !it.urlToImage.isNullOrEmpty()
         }.sortedByDescending { it.publishedAt } // Ordena por fecha de publicación en orden descendente
-            .take(25)
+            .take(25) // Limita el resultado a 25 artículos
     }
 
+    /**
+     * Formatea la fecha de publicación de un artículo.
+     * @param dateString: Cadena de fecha en formato ISO 8601 (ej. "2023-10-05T14:30:00Z").
+     * @return Cadena de fecha formateada (ej. "14:30 05-10-2023").
+     */
     fun formatPublishedAt(dateString: String): String {
-        // Define el formato de entrada
+        // Define el formato de entrada (ISO 8601)
         val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.getDefault())
-        // Define el formato de salida
+        // Define el formato de salida (HH:mm dd-MM-yyyy)
         val outputFormat = SimpleDateFormat("HH:mm dd-MM-yyyy", Locale.getDefault())
 
         return try {

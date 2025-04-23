@@ -4,8 +4,6 @@ import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.content.MediaType.Companion.Image
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,25 +12,22 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.MailOutline
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -42,11 +37,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -67,18 +63,28 @@ import kotlinx.coroutines.launch
  * Descripción: 
  */
 
+/**
+ * Pantalla de registro de usuarios.
+ *
+ * @param isDarkTheme Indica si el tema oscuro está activado.
+ * @param navController Controlador de navegación.
+ * @param userViewModel ViewModel para manejar los datos del usuario.
+ * @param ddbbViewModel ViewModel para manejar la base de datos.
+ */
+
 @Composable
 fun RegisterScreen(
-    isDarkTheme: Boolean,
-    navController: NavController,
-    userViewModel: UserViewModel = UserViewModel(),
-    ddbbViewModel: DDBBViewModel = DDBBViewModel()
+    isDarkTheme: Boolean, // Indica si el tema oscuro está activado
+    navController: NavController, // Controlador de navegación
+    userViewModel: UserViewModel = UserViewModel(), // ViewModel para manejar los datos del usuario
+    ddbbViewModel: DDBBViewModel = DDBBViewModel() // ViewModel para manejar la base de datos
 ) {
     val context = LocalContext.current
-    val registrationMessage by userViewModel.message.collectAsState()
-    val formFields by userViewModel.formFields.collectAsState()
-    val coroutineScope = rememberCoroutineScope()
+    val registrationMessage by userViewModel.message.collectAsState() // Mensaje de registro
+    val formFields by userViewModel.formFields.collectAsState() // Campos del formulario
+    val coroutineScope = rememberCoroutineScope() // CoroutineScope para operaciones asíncronas
 
+    // Efecto para mostrar un Toast si hay un mensaje de registro
     LaunchedEffect(registrationMessage) {
         if (registrationMessage.isNotBlank()) {
             Toast.makeText(context, registrationMessage, Toast.LENGTH_LONG).show()
@@ -86,6 +92,7 @@ fun RegisterScreen(
         }
     }
 
+    // Diseño principal de la pantalla de registro
     Surface(
         modifier = Modifier
             .fillMaxSize()
@@ -96,15 +103,17 @@ fun RegisterScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
         ) {
+            // Encabezado de la pantalla de registro
             LoginHeader(
                 isDarkTheme = isDarkTheme,
                 title = "Crear Cuenta",
                 subtitle = "Regístrate para comenzar"
             )
 
-            // Ajusta el padding vertical aquí
+            // Espaciador ajustado
             Spacer(modifier = Modifier.height(0.dp))
 
+            // Formulario de registro
             RegistrationForm(
                 formFields = formFields,
                 onFormFieldChange = { field, value ->
@@ -122,6 +131,15 @@ fun RegisterScreen(
     }
 }
 
+/**
+ * Formulario de registro de usuarios.
+ *
+ * @param formFields Campos del formulario.
+ * @param onFormFieldChange Función para manejar cambios en los campos del formulario.
+ * @param onRegisterClick Función para manejar el evento de registro.
+ * @param onLoginClick Función para manejar el evento de inicio de sesión.
+ */
+
 @Composable
 private fun RegistrationForm(
     formFields: Map<String, String>,
@@ -129,6 +147,14 @@ private fun RegistrationForm(
     onRegisterClick: () -> Unit,
     onLoginClick: () -> Unit
 ) {
+    val passwordVisibility = remember {
+        mutableStateMapOf(
+            "password" to false,
+            "confirmPassword" to false
+        )
+    }
+
+    // Tarjeta que contiene el formulario de registro
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -145,6 +171,7 @@ private fun RegistrationForm(
                 .padding(20.dp) // Reducido de 24dp
                 .fillMaxWidth()
         ) {
+            // Lista de campos del formulario
             listOf(
                 "nameSurname" to "Nombre completo",
                 "username" to "Nombre de usuario",
@@ -171,7 +198,10 @@ private fun RegistrationForm(
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                         )
                     },
-                    visualTransformation = if (field.contains("password"))
+                    visualTransformation = if (
+                        (field == "password" || field == "confirmPassword")
+                        && passwordVisibility[field] != true
+                    )
                         PasswordVisualTransformation()
                     else
                         VisualTransformation.None,
@@ -185,12 +215,30 @@ private fun RegistrationForm(
                             },
                             contentDescription = null
                         )
+                    },
+                    trailingIcon = {
+                        if (field == "password" || field == "confirmPassword") {
+                            val visible = passwordVisibility[field] ?: false
+                            IconButton(
+                                modifier = Modifier.padding(end = 10.dp),
+                                onClick = {
+                                    passwordVisibility[field] = !visible
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Visibility,
+                                    contentDescription = "Mostrar contraseña",
+                                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                                )
+                            }
+                        }
                     }
                 )
 
                 Spacer(modifier = Modifier.height(20.dp))
             }
 
+            // Botón de registro
             Button(
                 onClick = onRegisterClick,
                 modifier = Modifier
@@ -207,6 +255,7 @@ private fun RegistrationForm(
 
             Spacer(modifier = Modifier.height(15.dp))
 
+            // Enlace para iniciar sesión
             Row(
                 modifier = Modifier.align(Alignment.CenterHorizontally),
                 verticalAlignment = Alignment.CenterVertically
@@ -226,12 +275,21 @@ private fun RegistrationForm(
     }
 }
 
+/**
+ * Cabecera de la pantalla de registro.
+ *
+ * @param isDarkTheme Indica si el tema oscuro está activado.
+ * @param title Título de la pantalla.
+ * @param subtitle Subtítulo de la pantalla.
+ */
+
 @Composable
 private fun LoginHeader(
     isDarkTheme: Boolean,
     title: String,
     subtitle: String
 ) {
+    // Encabezado con el logo y el mensaje de bienvenida
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -276,6 +334,8 @@ private fun LoginHeader(
 @Preview(showBackground = true)
 @Composable
 fun RegisterScreenPreview() {
+
+    // Previsualización de la pantalla de registro
     RegisterScreen(
         isDarkTheme = false,
         navController = NavController(LocalContext.current)

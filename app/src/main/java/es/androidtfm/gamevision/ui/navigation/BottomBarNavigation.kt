@@ -14,9 +14,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.BottomNavigation
 import androidx.compose.material.BottomNavigationItem
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -64,7 +64,7 @@ fun AppScaffold(
     } else {
         listOf(
             BottomNavItem("gamesearch", Icons.Filled.Search, "Search"),
-            BottomNavItem("gamelist", Icons.Filled.List, "Game List"),
+            BottomNavItem("gamelist", Icons.AutoMirrored.Filled.List, "Game List"),
             BottomNavItem("news", Icons.Default.Home, "Home"),
             BottomNavItem("profile", Icons.Default.Person, "Profile"),
             BottomNavItem("social", Icons.Default.Face, "Social")

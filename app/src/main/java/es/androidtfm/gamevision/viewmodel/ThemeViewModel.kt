@@ -15,20 +15,31 @@ import kotlinx.coroutines.launch
  * Descripción: 
  */
 
+/**
+ * ViewModel para gestionar el tema de la aplicación.
+ *
+ * Se encarga de manejar el estado del tema (claro/oscuro) y proporcionar métodos para alternarlo.
+ */
+
 class ThemeViewModel(application: Application) : AndroidViewModel(application) {
+    // Instancia de `ThemeDataStore` para acceder a las preferencias de tema
     val themeDataStore = ThemeDataStore(application)
 
     // Exponemos el estado del tema como un `StateFlow`
     val isDarkTheme: StateFlow<Boolean> = themeDataStore.isDarkTheme.stateIn(
-        viewModelScope,
-        SharingStarted.Lazily,
+        viewModelScope, // CoroutineScope del ViewModel
+        SharingStarted.Lazily, // Inicia la recolección de datos cuando hay al menos un observador
         false // Valor inicial (por defecto modo claro)
     )
 
-    // Función para alternar el tema
+    /**
+     * Función para alternar el tema entre claro y oscuro.
+     */
     fun toggleTheme() {
         viewModelScope.launch {
+            // Obtiene el estado actual del tema
             val currentTheme = isDarkTheme.value
+            // Cambia el tema al estado opuesto
             themeDataStore.swapTheme(!currentTheme)
         }
     }

@@ -35,8 +35,8 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Divider
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -79,119 +79,146 @@ import java.io.File
  * Descripción:
  */
 
-data class ProfileInfo(
-    var nameSurname: String,
-    var username: String,
-    var description: String,
-    var country: String,
-    var email: String
-)
-
+/**
+ * Pantalla de perfil del usuario logueado.
+ *
+ * @param isDarkTheme Indica si el tema oscuro está activado.
+ * @param paddingValues Valores de padding para la pantalla.
+ * @param navController Controlador de navegación.
+ * @param userViewModel ViewModel para manejar los datos del usuario.
+ * @param ddbbViewModel ViewModel para manejar la base de datos.
+ * @param googleViewModel ViewModel para manejar la autenticación con Google.
+ * @param onThemeChange Función para cambiar el tema.
+ */
 @Composable
 fun ProfileScreen(
     isDarkTheme: Boolean,
     paddingValues: PaddingValues,
-    navController: NavController?,
+    navController: NavController?, // Se usa para acceder al SavedStateHandle y para la navegación
     userViewModel: UserViewModel,
     ddbbViewModel: DDBBViewModel,
     googleViewModel: GoogleViewModel,
     onThemeChange: (Boolean) -> Unit
 ) {
+    // Estado que contiene la información del perfil del usuario y el indicador de carga
     val profileInfo by userViewModel.profileInfo.collectAsState()
     val isLoading by userViewModel.isLoading.collectAsState()
+
+    // Obtenemos el usuario actual desde Firebase
     val currentUser = FirebaseAuth.getInstance().currentUser
 
-    LaunchedEffect(currentUser) {
-        currentUser?.email?.let { userViewModel.fetchUserData(it) }
+    // Log para confirmar el email
+    currentUser?.email?.let { email ->
+        Log.d("ProfileScreen", "Email del usuario: $email")
+    } ?: Log.e("ProfileScreen", "currentUser es null o no tiene email.")
+
+    // Utilizamos savedStateHandle para refrescar el perfil tras editar
+    val refreshTrigger = navController
+        ?.currentBackStackEntry
+        ?.savedStateHandle
+        ?.getStateFlow("profileUpdate", false)
+        ?.collectAsState(initial = false)
+        ?.value ?: false
+
+    // Efecto para refrescar los datos al cambiar el usuario o el trigger de refresco
+    LaunchedEffect(currentUser, refreshTrigger) {
+        currentUser?.email?.let { email ->
+            // Llamada a fetchUserData pasando la instancia de ddbbViewModel
+            userViewModel.fetchUserData(email, ddbbViewModel)
+            navController?.currentBackStackEntry?.savedStateHandle?.set("profileUpdate", false)
+        }
     }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            Column(
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(paddingValues)
+        ) {
+            // Sección del encabezado con fondo gradiente
+            Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
+                    .fillMaxWidth()
+                    .height(100.dp)
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.primaryContainer,
+                                MaterialTheme.colorScheme.secondaryContainer
+                            )
+                        )
+                    )
             ) {
-                // Header Section
-                Box(
+                // Botón para cambiar el tema
+                IconButton(
+                    onClick = { onThemeChange(!isDarkTheme) },
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(16.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(
+                            id = if (isDarkTheme) R.drawable.daynightthemewhite
+                            else R.drawable.daynightthemeblack
+                        ),
+                        contentDescription = "Theme",
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
+
+            if (isLoading) {
+                // Indicador de carga mientras se obtiene la información del perfil
+                ProfileLoadingIndicator()
+            } else {
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(170.dp)
-                        .background(
-                            brush = Brush.verticalGradient(
-                                colors = listOf(
-                                    MaterialTheme.colorScheme.primaryContainer,
-                                    MaterialTheme.colorScheme.secondaryContainer
-                                )
-                            )
-                        )
+                        .padding(horizontal = 20.dp)
+                        .padding(top = 60.dp, bottom = 20.dp)
                 ) {
-                    IconButton(
-                        onClick = { onThemeChange(!isDarkTheme) },
+                    // Imagen de perfil con efecto de offset
+                    Card(
+                        shape = CircleShape,
+                        elevation = CardDefaults.cardElevation(8.dp),
                         modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .padding(16.dp)
+                            .size(140.dp)
+                            .align(Alignment.CenterHorizontally)
+                            .offset(y = (-25).dp)
                     ) {
-                        Icon(
-                            painter = painterResource(
-                                id = if (isDarkTheme) R.drawable.daynightthemewhite
-                                else R.drawable.daynightthemeblack),
-                            contentDescription = "Theme",
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
+                        ProfileImage(profileInfo.email, ddbbViewModel)
                     }
-                }
 
-                // Profile Content
-                if (isLoading) {
-                    ProfileLoadingIndicator()
-                } else {
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        // Profile Image
-                        Card(
-                            shape = CircleShape,
-                            elevation = CardDefaults.cardElevation(8.dp),
-                            modifier = Modifier
-                                .size(120.dp)
-                                .align(Alignment.TopCenter)
-                                .offset(y = (-60).dp)
-                        ) {
-                            ProfileImage(profileInfo.email, ddbbViewModel)
-                        }
+                    // Sección del encabezado del perfil
+                    ProfileHeaderSection(
+                        name = profileInfo.nameSurname,
+                        username = profileInfo.username,
+                        modifier = Modifier.padding(bottom = 24.dp)
+                    )
 
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(20.dp, 80.dp, 20.dp, 20.dp)
-                        ) {
-                            // Profile Info
-                            ProfileHeaderSection(
-                                name = profileInfo.nameSurname,
-                                username = profileInfo.username,
-                                modifier = Modifier.padding(bottom = 24.dp)
-                            )
+                    // Tarjeta de detalles del perfil
+                    ProfileDetailsCard(
+                        description = profileInfo.description,
+                        country = profileInfo.country,
+                        email = profileInfo.email
+                    )
 
-                            // Details Card
-                            ProfileDetailsCard(
-                                description = profileInfo.description,
-                                country = profileInfo.country,
-                                email = profileInfo.email
-                            )
+                    // Sección de acciones del perfil (incluye el botón de "Cerrar sesión")
+                    ProfileActionsSection(
+                        context = LocalContext.current,
+                        navController = navController,
+                        userViewModel = userViewModel,
+                        ddbbViewModel = ddbbViewModel,
+                        googleViewModel = googleViewModel,
+                        modifier = Modifier.padding(top = 24.dp)
+                    )
 
-                            // Settings Section
-                            ProfileActionsSection(
-                                context = LocalContext.current,
-                                navController = navController,
-                                userViewModel = userViewModel,
-                                ddbbViewModel = ddbbViewModel,
-                                googleViewModel = googleViewModel,
-                                modifier = Modifier.padding(top = 24.dp)
-                            )
-                        }
-                    }
+                    // Espacio adicional
+                    Spacer(modifier = Modifier.height(40.dp))
                 }
             }
         }
@@ -200,27 +227,20 @@ fun ProfileScreen(
 
 @Composable
 fun ProfileImage(email: String, ddbbViewModel: DDBBViewModel) {
+    // Estado que almacena la URI de la imagen de perfil
     var imageUri by remember { mutableStateOf<Uri?>(null) }
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
-    // Recuperar la imagen al cargar
+    // Efecto que se ejecuta cuando cambia el email para recuperar la imagen de perfil
     LaunchedEffect(email) {
         if (email.isNotEmpty()) {
-            ddbbViewModel.recoverProfilePicture(
-                email = email,
-                onSuccess = { uri ->
-                    Log.d("ProfileImage", "Recovered imageUri: $uri")
-                    imageUri = uri
-                },
-                onError = { exception ->
-                    Log.e("ProfileImage", "Error: ${exception.message}")
-                }
-            )
+            imageUri = ddbbViewModel.recoverProfilePicture(email)
+            Log.d("ProfileImage", "Recuperada imageUri: $imageUri")
         }
     }
 
-    // Guardar imagen localmente
+    // Función para guardar la imagen localmente y devolver su ruta
     fun saveImageLocally(uri: Uri): String {
         val file = File(context.filesDir, "profile_image_${System.currentTimeMillis()}.jpg")
         try {
@@ -229,9 +249,9 @@ fun ProfileImage(email: String, ddbbViewModel: DDBBViewModel) {
                     inputStream.copyTo(outputStream)
                 }
             }
-            Log.d("ImageStorage", "Image saved locally at: ${file.absolutePath}")
+            Log.d("ImageStorage", "Imagen guardada localmente en: ${file.absolutePath}")
         } catch (e: Exception) {
-            Log.e("ImageStorage", "Error saving image locally: ${e.message}")
+            Log.e("ImageStorage", "Error al guardar la imagen localmente: ${e.message}")
         }
         return file.absolutePath
     }
@@ -241,7 +261,7 @@ fun ProfileImage(email: String, ddbbViewModel: DDBBViewModel) {
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let {
-            Log.d("ProfileImage", "User selected new imageUri: $it")
+            Log.d("ProfileImage", "Usuario seleccionó nueva imageUri: $it")
             val localPath = saveImageLocally(it)
             val localUri = Uri.fromFile(File(localPath))
             imageUri = localUri
@@ -251,7 +271,7 @@ fun ProfileImage(email: String, ddbbViewModel: DDBBViewModel) {
         }
     }
 
-    // Mostrar la imagen o el ícono de edición
+    // Muestra la imagen de perfil o un ícono de edición si no hay imagen disponible
     Box(modifier = Modifier.fillMaxSize()) {
         imageUri?.let {
             Image(
@@ -281,11 +301,11 @@ private fun ProfileHeaderSection(
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier
-            .fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
+            modifier = Modifier.padding(bottom = 5.dp),
             text = name,
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.onBackground,
@@ -316,24 +336,19 @@ private fun ProfileDetailsCard(description: String, country: String, email: Stri
                 modifier = Modifier.padding(bottom = 8.dp)
             )
             Text(
-                text = description.ifEmpty { "No description provided" },
+                text = if (description.isEmpty()) "No description provided" else description,
                 maxLines = 2,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface
             )
-
             Spacer(modifier = Modifier.height(24.dp))
-
-            Divider(color = MaterialTheme.colorScheme.outlineVariant)
-
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(modifier = Modifier.height(16.dp))
-
             ProfileDetailItem(
                 icon = Icons.Default.LocationOn,
                 title = "Location",
-                value = country.ifEmpty { "Not specified" }
+                value = if (country.isEmpty()) "Not specified" else country
             )
-
             ProfileDetailItem(
                 icon = Icons.Default.Email,
                 title = "Contact",
@@ -357,9 +372,7 @@ private fun ProfileDetailItem(icon: ImageVector, title: String, value: String) {
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(20.dp)
         )
-
         Spacer(modifier = Modifier.width(16.dp))
-
         Column {
             Text(
                 text = title,
@@ -386,9 +399,8 @@ private fun ProfileActionsSection(
     modifier: Modifier = Modifier
 ) {
     val coroutineScope = rememberCoroutineScope()
-
     Column(modifier = modifier) {
-
+        // Botón para ver la lista de amigos
         FilledTonalButton(
             onClick = { navController?.navigate("friendlist") },
             modifier = Modifier.fillMaxWidth(),
@@ -402,10 +414,8 @@ private fun ProfileActionsSection(
             Spacer(modifier = Modifier.width(8.dp))
             Text("Seguidos")
         }
-
         Spacer(modifier = Modifier.height(12.dp))
-
-        // Edit Profile Button
+        // Botón para editar el perfil
         FilledTonalButton(
             onClick = { navController?.navigate("editProfile") },
             modifier = Modifier.fillMaxWidth(),
@@ -419,10 +429,8 @@ private fun ProfileActionsSection(
             Spacer(modifier = Modifier.width(8.dp))
             Text("Editar perfil")
         }
-
         Spacer(modifier = Modifier.height(12.dp))
-
-        // Logout Button
+        // Botón para cerrar sesión
         OutlinedButton(
             onClick = {
                 coroutineScope.launch {
@@ -478,11 +486,11 @@ private fun ProfileLoadingIndicator() {
 fun ProfileScreenPreview() {
     ProfileScreen(
         isDarkTheme = false,
-        onThemeChange = {},
         paddingValues = PaddingValues(),
         navController = null,
         userViewModel = UserViewModel(),
         ddbbViewModel = DDBBViewModel(),
-        googleViewModel = GoogleViewModel()
+        googleViewModel = GoogleViewModel(),
+        onThemeChange = {}
     )
 }

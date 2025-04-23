@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -48,7 +49,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,6 +62,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -74,6 +79,19 @@ import kotlinx.coroutines.launch
  * Descripción: 
  */
 
+/**
+ * Pantalla de login de la aplicación.
+ *
+ * @param isDarkTheme Indica si el tema oscuro está activado.
+ * @param navController Controlador de navegación.
+ * @param navconThemeChange Función para cambiar el tema.
+ * @param userViewModel ViewModel para datos de usuario.
+ * @param googleViewModel ViewModel para operaciones con Google.
+ * @param googleSignInLauncher Launcher para iniciar sesión con Google.
+ * @param onGoogleSignInClick Función para iniciar sesión con Google.
+ * @param ddbbViewModel ViewModel para operaciones con la base de datos.
+ */
+
 @Composable
 fun LoginScreen(
     isDarkTheme: Boolean,
@@ -88,12 +106,15 @@ fun LoginScreen(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
+    // Estados del formulario y mensajes
     val formFields by userViewModel.formFields.collectAsState()
     val message by userViewModel.message.collectAsState()
     val signInState by googleViewModel.signInState.observeAsState()
 
+    // Maneja el estado del inicio de sesión con Google
     HandleSignInState(signInState, navController, context)
 
+    // Diseño principal de la pantalla de inicio de sesión
     Surface(
         modifier = Modifier
             .fillMaxSize()
@@ -104,11 +125,10 @@ fun LoginScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
         ) {
+            // Encabezado de la pantalla de inicio de sesión
             LoginHeader(isDarkTheme)
 
-            // Eliminar el Spacer o ajustar el padding aquí
-            Spacer(modifier = Modifier.height(0.dp)) // Ajustado a 0.dp
-
+            // Formulario de inicio de sesión
             LoginForm(
                 formFields = formFields,
                 message = message,
@@ -158,6 +178,7 @@ fun LoginScreen(
 
 @Composable
 private fun LoginHeader(isDarkTheme: Boolean) {
+    // Encabezado con el logo y el mensaje de bienvenida
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -199,6 +220,19 @@ private fun LoginHeader(isDarkTheme: Boolean) {
     }
 }
 
+/**
+ * Formulario de inicio de sesión.
+ *
+ * @param formFields Campos del formulario.
+ * @param message Mensaje de error o información.
+ * @param onEmailChange Función para cambiar el correo electrónico.
+ * @param onPasswordChange Función para cambiar la contraseña.
+ * @param onLoginClick Función para iniciar sesión.
+ * @param onForgotPasswordClick Función para recuperar la contraseña.
+ * @param onGoogleSignInClick Función para iniciar sesión con Google.
+ * @param onRegisterClick Función para navegar a la pantalla de registro.
+ */
+
 @Composable
 private fun LoginForm(
     formFields: Map<String, String>,
@@ -208,8 +242,11 @@ private fun LoginForm(
     onLoginClick: () -> Unit,
     onForgotPasswordClick: () -> Unit,
     onGoogleSignInClick: () -> Unit,
-    onRegisterClick: () -> Unit
+    onRegisterClick: () -> Unit,
 ) {
+    var passwordVisible by remember { mutableStateOf(false) }
+
+    // Tarjeta que contiene el formulario de inicio de sesión
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -226,6 +263,7 @@ private fun LoginForm(
                 .padding(24.dp)
                 .fillMaxWidth()
         ) {
+            // Mensaje de error o información
             if (message.isNotEmpty()) {
                 Text(
                     text = message,
@@ -241,6 +279,7 @@ private fun LoginForm(
                         .padding(12.dp)
                 )
             }
+            // Campo de correo electrónico
             OutlinedTextField(
                 value = formFields["email"] ?: "",
                 onValueChange = onEmailChange,
@@ -260,6 +299,7 @@ private fun LoginForm(
 
             Spacer(modifier = Modifier.height(20.dp))
 
+            // Campo de contraseña
             OutlinedTextField(
                 value = formFields["password"] ?: "",
                 onValueChange = onPasswordChange,
@@ -268,17 +308,29 @@ private fun LoginForm(
                 },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
-                visualTransformation = PasswordVisualTransformation(),
+                visualTransformation = if (!passwordVisible) PasswordVisualTransformation() else VisualTransformation.None,
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Outlined.Lock,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
                     )
+                },
+                trailingIcon = {
+                    IconButton(
+                        modifier = Modifier.padding(end = 10.dp),
+                        onClick = { passwordVisible = !passwordVisible })
+                    {
+                        Icon(
+                            imageVector = Icons.Outlined.Visibility,
+                            contentDescription = "Mostrar contraseña",
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                        )
+                    }
                 }
             )
 
-            // Forgot Password
+            // Enlace para recuperar contraseña
             TextButton(
                 onClick = onForgotPasswordClick,
                 modifier = Modifier
@@ -294,7 +346,7 @@ private fun LoginForm(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Login Button
+            // Botón de inicio de sesión
             Button(
                 onClick = onLoginClick,
                 modifier = Modifier
@@ -311,7 +363,7 @@ private fun LoginForm(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Divider
+            // Divisor
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
@@ -334,7 +386,7 @@ private fun LoginForm(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Google Button
+            // Botón de inicio de sesión con Google
             OutlinedButton(
                 onClick = onGoogleSignInClick,
                 modifier = Modifier
@@ -369,7 +421,7 @@ private fun LoginForm(
 
             Spacer(modifier = Modifier.height(15.dp))
 
-            // Register Link
+            // Enlace para registrarse
             Row(
                 modifier = Modifier.align(Alignment.CenterHorizontally),
                 verticalAlignment = Alignment.CenterVertically
@@ -389,13 +441,13 @@ private fun LoginForm(
     }
 }
 
-
 @Composable
 private fun HandleSignInState(
-    signInState: GoogleViewModel.SignInState?,
-    navController: NavController,
-    context: Context
+    signInState: GoogleViewModel.SignInState?, // Estado del inicio de sesión con Google
+    navController: NavController, // Controlador de navegación
+    context: Context // Contexto de la aplicación
 ) {
+    // Navega a la pantalla de noticias si el inicio de sesión es exitoso
     if (signInState is GoogleViewModel.SignInState.Success) {
         LaunchedEffect(key1 = signInState) {
             navController.navigateToNews()
@@ -403,10 +455,12 @@ private fun HandleSignInState(
     }
 }
 
+// Valida si los campos del formulario están completos
 private fun validateLoginForm(formFields: Map<String, String>): Boolean {
     return formFields["email"].isNullOrEmpty().not() && formFields["password"].isNullOrEmpty().not()
 }
 
+// Navega a la pantalla de noticias
 private fun NavController.navigateToNews() {
     navigate("news") {
         popUpTo("login") { inclusive = true }
@@ -416,6 +470,8 @@ private fun NavController.navigateToNews() {
 @Preview(showBackground = true)
 @Composable
 fun LoginScreenPreview() {
+
+    // Previsualización de la pantalla de inicio de sesión
     LoginScreen(
         isDarkTheme = false,
         navController = NavController(LocalContext.current),

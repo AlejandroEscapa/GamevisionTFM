@@ -18,7 +18,14 @@ import retrofit2.HttpException
  * Descripción: 
  */
 
+/**
+ * ViewModel para la búsqueda de juegos
+ *
+ * Contiene todos los métodos con los que se interactúa con la API de juegos.
+ */
+
 class SearchViewModel : ViewModel() {
+
     // Estados para la búsqueda de juegos
     private val _games = MutableStateFlow<List<Game>>(emptyList())
     val games: StateFlow<List<Game>> = _games
@@ -43,43 +50,55 @@ class SearchViewModel : ViewModel() {
     private val _errorDetails = MutableStateFlow<String?>(null)
     val errorDetails: StateFlow<String?> = _errorDetails
 
-    // Función para buscar juegos
+    /**
+     * Función para buscar juegos.
+     * @param query: Término de búsqueda para encontrar juegos.
+     */
     fun fetchGames(query: String) {
         viewModelScope.launch {
-            _isLoading.value = true
-            _error.value = null
+            _isLoading.value = true // Indica que la carga ha comenzado
+            _error.value = null    // Limpia cualquier error previo
 
+            // Limpia la consulta eliminando espacios innecesarios y comillas
             val cleanedQuery = query.trim().replace("\"", "")
             val requestBody = "search \"$cleanedQuery\"; fields *;"
 
             try {
+                // Llamada a la API para buscar juegos
                 val response = RetrofitInstance.gamesApi.searchGames(cleanedQuery)
-                _games.value = response.results
+                _games.value = response.results // Actualiza la lista de juegos
             } catch (e: HttpException) {
+                // Maneja errores HTTP
                 val errorResponse = e.response()?.errorBody()?.string()
                 _error.value = "Error al cargar juegos: $errorResponse"
             } catch (e: Exception) {
+                // Maneja errores generales
                 _error.value = "Error al cargar juegos: ${e.message}"
             } finally {
-                _isLoading.value = false
+                _isLoading.value = false // Carga finalizada
             }
         }
     }
 
-    // Función para obtener detalles del juego por ID
+    /**
+     * Función para obtener detalles del juego por ID.
+     * @param gameId: ID del juego del cual se desean obtener los detalles.
+     */
     fun fetchGameDetails(gameId: Int) {
         viewModelScope.launch {
             _isLoadingDetails.value = true // Indica que la carga ha comenzado
-            _errorDetails.value = null      // Limpia cualquier error previo
+            _errorDetails.value = null     // Limpia cualquier error previo
 
             try {
                 // Llamada a la API para obtener los detalles del juego
                 val response = RetrofitInstance.gamesApi.getGameDetails(gameId)
-                _gameDetails.value = response
+                _gameDetails.value = response // Actualiza los detalles del juego
             } catch (e: HttpException) {
+                // Maneja errores HTTP
                 val errorResponse = e.response()?.errorBody()?.string()
                 _errorDetails.value = "Error al cargar detalles: $errorResponse"
             } catch (e: Exception) {
+                // Maneja errores generales
                 _errorDetails.value = "Error al cargar detalles: ${e.message}"
             } finally {
                 _isLoadingDetails.value = false // Carga finalizada
@@ -87,22 +106,30 @@ class SearchViewModel : ViewModel() {
         }
     }
 
-    // Función para obtener detalles y almacenarlos en el mapa
+    /**
+     * Función para obtener detalles de un juego y almacenarlos en el mapa.
+     * @param gameId: ID del juego del cual se desean obtener los detalles.
+     */
     suspend fun fetchAndStoreGameDetails(gameId: Int) {
         viewModelScope.launch {
-            _isLoadingDetails.value = true
+            _isLoadingDetails.value = true // Indica que la carga ha comenzado
             try {
+                // Llamada a la API para obtener los detalles del juego
                 val response = RetrofitInstance.gamesApi.getGameDetails(gameId)
-                _gamesMap[gameId] = response
+                _gamesMap[gameId] = response // Almacena los detalles en el mapa
             } catch (e: Exception) {
-                // Manejar error si es necesario
+                // Maneja errores generales (puedes agregar más detalles si es necesario)
             } finally {
-                _isLoadingDetails.value = false
+                _isLoadingDetails.value = false // Carga finalizada
             }
         }
     }
 
+    /**
+     * Función para eliminar un juego del mapa.
+     * @param gameId: ID del juego que se desea eliminar.
+     */
     fun removeGame(gameId: Int) {
-        gamesMap.remove(gameId)
+        gamesMap.remove(gameId) // Elimina el juego del mapa
     }
 }

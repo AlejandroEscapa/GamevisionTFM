@@ -61,9 +61,13 @@ dependencies {
 
     // Jetpack Compose
     implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.animation)
+    implementation(libs.androidx.animation.core)
     implementation(libs.compose.ui)
+    implementation(libs.compose.ui.tooling)
     implementation(libs.compose.material)
     implementation(libs.compose.material3)
+    implementation(libs.compose.material.icons.extended)
     implementation(libs.compose.runtime)
     implementation(libs.compose.activity)
     implementation(libs.androidx.ui.graphics)

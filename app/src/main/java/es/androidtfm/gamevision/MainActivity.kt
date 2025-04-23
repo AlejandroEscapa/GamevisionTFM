@@ -56,20 +56,20 @@ class MainActivity : ComponentActivity() {
         val webClientId = getString(R.string.default_web_client_id)
         googleViewModel.initializeGoogleSignIn(oneTapClient, webClientId)
 
-        // Inicializar el ActivityResultLauncher
+        // Inicializar el ActivityResultLauncher para Google Sign-In
         googleSignInLauncher = registerForActivityResult(
             ActivityResultContracts.StartIntentSenderForResult()
         ) { result ->
             if (result.resultCode == RESULT_OK) {
                 val data = result.data
-                googleViewModel.handleSignInResult(data) // Ya no necesitas pasar onSuccess y onError
+                googleViewModel.handleSignInResult(data)
             } else {
                 Log.e("MainActivity", "Google Sign-In cancelado o fallido")
                 Toast.makeText(this, "Google Sign-In cancelado o fallido", Toast.LENGTH_SHORT).show()
             }
         }
 
-        // Observar el estado del inicio de sesión
+        // Observar el estado del inicio de sesión de Google
         googleViewModel.signInState.observe(this) { state ->
             when (state) {
                 is GoogleViewModel.SignInState.Success -> {
@@ -79,17 +79,18 @@ class MainActivity : ComponentActivity() {
                     Log.e("MainActivity", state.message)
                     Toast.makeText(this, state.message, Toast.LENGTH_SHORT).show()
                 }
-                else -> {
-                    // No hacer nada para otros estados (Idle, Loading)
-                }
+                else -> { /* Estado Idle o Loading: No hacer nada */ }
             }
         }
 
         setContent {
+            // Se instancian los ViewModels compartidos a nivel de actividad
             val themeViewModel: ThemeViewModel = viewModel()
             val userViewModel: UserViewModel = viewModel()
             val newsViewModel: NewsViewModel = viewModel()
             val ddbbViewModel: DDBBViewModel = viewModel()
+            // Para SearchViewModel se instancia aquí; en producción podrías compartirlo o instanciarlo desde un contenedor de navegación.
+            val searchViewModel = SearchViewModel()
 
             MainScreen(
                 window = window,
@@ -99,12 +100,10 @@ class MainActivity : ComponentActivity() {
                 newsViewModel = newsViewModel,
                 googleSignInLauncher = googleSignInLauncher,
                 onGoogleSignInClick = {
-                    // Lanzar el flujo de inicio de sesión con Google
-                    lifecycleScope.launch {
-                        initiateGoogleSignIn()
-                    }
+                    lifecycleScope.launch { initiateGoogleSignIn() }
                 },
-                ddbbViewModel = ddbbViewModel
+                ddbbViewModel = ddbbViewModel,
+                searchViewModel = searchViewModel // Si NewsScreen u otras pantallas lo requieren
             )
         }
     }
@@ -136,20 +135,20 @@ fun MainScreen(
     newsViewModel: NewsViewModel,
     googleSignInLauncher: ActivityResultLauncher<IntentSenderRequest>,
     onGoogleSignInClick: () -> Unit,
-    ddbbViewModel: DDBBViewModel
+    ddbbViewModel: DDBBViewModel,
+    searchViewModel: SearchViewModel
 ) {
     val isDarkTheme by themeViewModel.isDarkTheme.collectAsState()
     val colors = if (isDarkTheme) DarkColorPalette else LightColorPalette
     val navController = rememberNavController()
     val themeDataStore = themeViewModel.themeDataStore
-
-    // Observar el estado isGuest
+    // Observar estado de invitado
     val isGuest by userViewModel.isGuest.collectAsState()
 
     var isNavHostInitialized by remember { mutableStateOf(false) }
 
     MaterialTheme(colorScheme = colors) {
-        // Control de UI del sistema (barra de estado, navegación, etc.)
+        // Configuración del sistema UI (barras de estado, navegación, etc.)
         SystemUiController(window, isDarkTheme)
 
         Surface(
@@ -158,10 +157,10 @@ fun MainScreen(
                 .windowInsetsPadding(WindowInsets.systemBars),
             color = MaterialTheme.colorScheme.background
         ) {
-            // El NavHost que recibe todos los parámetros necesarios
+            // Se invoca el NavGraph compartido, pasando los ViewModels ya instanciados
             NavHost(
                 navController = navController,
-                themeDataStore = themeDataStore,  // Asegúrate de tener el themeDataStore
+                themeDataStore = themeDataStore,
                 onThemeChange = { themeViewModel.toggleTheme() },
                 userViewModel = userViewModel,
                 googleViewModel = googleViewModel,
@@ -170,17 +169,17 @@ fun MainScreen(
                 onGoogleSignInClick = onGoogleSignInClick,
                 ddbbViewModel = ddbbViewModel,
                 isGuest = isGuest,
-                searchViewModel = SearchViewModel()
+                searchViewModel = searchViewModel
             )
 
-            // Control del estado de inicialización del NavHost
+            // Se controla la inicialización del NavHost
             LaunchedEffect(navController) {
                 isNavHostInitialized = true
             }
         }
     }
 
-
+    // Navegación automática: Si hay usuario autenticado y no es invitado, se navega a "news"
     LaunchedEffect(isNavHostInitialized) {
         if (isNavHostInitialized) {
             val currentUser = FirebaseAuth.getInstance().currentUser
@@ -193,17 +192,15 @@ fun MainScreen(
     }
 }
 
+/*
+ * Configuración de UI para el sistema (barras de estado y navegación)
+ */
 @Composable
 fun SystemUiController(window: Window, isDarkTheme: Boolean) {
     val isLightTheme = !isSystemInDarkTheme()
-    val systemBarColor = if (isLightTheme) {
-        MaterialTheme.colorScheme.surface // Color para tema claro
-    } else {
-        MaterialTheme.colorScheme.onSurface // Color para tema oscuro
-    }
+    val systemBarColor = if (isLightTheme) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurface
 
     SideEffect {
-        // Configurar las barras del sistema
         val insetsController = WindowCompat.getInsetsController(window, window.decorView)
         window.statusBarColor = systemBarColor.toArgb()
         insetsController.isAppearanceLightStatusBars = !isDarkTheme

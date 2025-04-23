@@ -56,18 +56,20 @@ fun NavHost(
         navController = navController,
         startDestination = "main"
     ) {
+        // Pantalla principal de la aplicación
         composable("main") {
             HomeScreen(
                 isDarkTheme = isDarkTheme,
                 onThemeChange = onThemeChange,
                 navController = navController,
                 isGuest = isGuest,
-                onGuestStatusChange = { isGuest ->
-                    userViewModel.setGuestStatus(isGuest)
+                onGuestStatusChange = { guestStatus ->
+                    userViewModel.setGuestStatus(guestStatus)
                 }
             )
         }
 
+        // Pantalla de Login
         composable("login") {
             LoginScreen(
                 isDarkTheme = isDarkTheme,
@@ -81,24 +83,28 @@ fun NavHost(
             )
         }
 
+        // Pantalla de noticias: Es la pantalla principal donde se carga la información del usuario (fetch centralizado)
         composable("news") {
             AppScaffold(
                 navController = navController,
-                userViewModel = userViewModel, // Pasa el estado isGuest
+                userViewModel = userViewModel // Se utiliza el ViewModel compartido
             ) { paddingValues ->
                 NewsScreen(
                     isDarkTheme = isDarkTheme,
-                    onThemeChange = {},
-                    viewModel = newsViewModel,
+                    onThemeChange = onThemeChange,
+                    newsViewModel = newsViewModel,
+                    userViewModel = userViewModel,
+                    ddbbViewModel = ddbbViewModel,
                     paddingValues = paddingValues
                 )
             }
         }
 
+        // Pantalla del perfil
         composable("profile") {
             AppScaffold(
                 navController = navController,
-                userViewModel = userViewModel, // Pasa el estado de invitado
+                userViewModel = userViewModel
             ) { paddingValues ->
                 ProfileScreen(
                     isDarkTheme = isDarkTheme,
@@ -112,10 +118,11 @@ fun NavHost(
             }
         }
 
+        // Pantalla de lista de juegos
         composable("gamelist") {
             AppScaffold(
                 navController = navController,
-                userViewModel = userViewModel, // Pasa el estado de invitado
+                userViewModel = userViewModel
             ) { paddingValues ->
                 GameListScreen(
                     navController = navController,
@@ -129,20 +136,22 @@ fun NavHost(
             }
         }
 
+        // Pantalla de búsqueda de juegos
         composable("gameSearch") {
             AppScaffold(
                 navController = navController,
-                userViewModel = userViewModel,
+                userViewModel = userViewModel
             ) { paddingValues ->
                 SearchScreen(
                     navController = navController,
                     isDarkTheme = isDarkTheme,
-                    viewModel = searchViewModel, // Ahora usa la instancia correcta
+                    viewModel = searchViewModel,
                     paddingValues = paddingValues
                 )
             }
         }
 
+        // Pantalla de registro
         composable("register") {
             RegisterScreen(
                 isDarkTheme = isDarkTheme,
@@ -152,14 +161,16 @@ fun NavHost(
             )
         }
 
+        // Pantalla de recuperación de contraseña
         composable("passrecover") {
             PassScreen(
                 isDarkTheme = isDarkTheme,
                 navController = navController,
-                viewModel = UserViewModel()
+                userViewModel = UserViewModel() // Si es posible, utiliza el mismo userViewModel
             )
         }
 
+        // Pantalla de edición del perfil
         composable("editProfile") {
             EditProfileScreen(
                 isDarkTheme = isDarkTheme,
@@ -170,10 +181,11 @@ fun NavHost(
             )
         }
 
+        // Pantalla de la red social (timeline)
         composable("social") {
             AppScaffold(
                 navController = navController,
-                userViewModel = userViewModel,
+                userViewModel = userViewModel
             ) { paddingValues ->
                 SocialScreen(
                     isDarkTheme = isDarkTheme,
@@ -185,6 +197,7 @@ fun NavHost(
             }
         }
 
+        // Pantalla de detalles del juego
         composable("gameDetails/{gameId}") { backStackEntry ->
             val gameId = backStackEntry.arguments?.getString("gameId")?.toIntOrNull()
             val parentEntry = remember(backStackEntry) {
@@ -192,7 +205,6 @@ fun NavHost(
                 if (navController.currentBackStackEntry?.destination?.route == "gameSearch") {
                     navController.getBackStackEntry("gameSearch")
                 } else {
-                    // Si no está, usa la entrada actual
                     backStackEntry
                 }
             }
@@ -200,7 +212,7 @@ fun NavHost(
 
             AppScaffold(
                 navController = navController,
-                userViewModel = userViewModel,
+                userViewModel = userViewModel
             ) { paddingValues ->
                 gameId?.let {
                     GameDetails(
@@ -216,10 +228,11 @@ fun NavHost(
             }
         }
 
+        // Pantalla de amigos
         composable("friendlist") {
             AppScaffold(
                 navController = navController,
-                userViewModel = userViewModel,
+                userViewModel = userViewModel
             ) { paddingValues ->
                 FriendsList(
                     isDarkTheme = isDarkTheme,
@@ -232,4 +245,3 @@ fun NavHost(
         }
     }
 }
-

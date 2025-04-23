@@ -11,6 +11,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,20 +28,23 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.MailOutline
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
@@ -57,6 +61,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
@@ -66,6 +71,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import com.google.firebase.auth.FirebaseAuth
 import es.androidtfm.gamevision.viewmodel.DDBBViewModel
 import es.androidtfm.gamevision.viewmodel.UserViewModel
 import kotlinx.coroutines.launch
@@ -78,6 +84,15 @@ import java.time.format.DateTimeFormatter
  * Descripción: 
  */
 
+/**
+ * Pantalla principal de la red social que muestra el timeline de mensajes.
+ *
+ * @param isDarkTheme Indica si el tema oscuro está activado.
+ * @param paddingValues PaddingValues para ajustar el layout.
+ * @param navController Controlador de navegación.
+ * @param userViewModel ViewModel para datos de usuario.
+ * @param ddbbViewModel ViewModel para operaciones con la base de datos.
+ */
 @Composable
 fun SocialScreen(
     isDarkTheme: Boolean,
@@ -88,7 +103,8 @@ fun SocialScreen(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val formFields by userViewModel.formFields.collectAsState()
-    val email = formFields["email"]
+    val firebaseUser = FirebaseAuth.getInstance().currentUser
+    val email = formFields["email"] ?: firebaseUser?.email
 
     var friendsList by remember { mutableStateOf(emptyList<Map<String, Any>>()) }
     var messageList by remember { mutableStateOf(emptyList<Map<String, Any>>()) }
@@ -97,34 +113,30 @@ fun SocialScreen(
     val commentMaxLength = 280
     var refreshTrigger by remember { mutableIntStateOf(0) }
 
-    // Carga de datos
+    // Efecto para obtener mensajes y amigos cuando cambie el email o se refresque
     LaunchedEffect(email, refreshTrigger) {
-        email?.let { emailData ->
-            ddbbViewModel.fetchUserData(emailData)
-            friendsList = ddbbViewModel.getFriendsList(emailData)
+        email?.let { userEmail ->
+            // Obtener lista de amigos del usuario
+            friendsList = ddbbViewModel.getFriendsList(userEmail)
 
-            val allMessages = mutableListOf<Map<String, Any>>()
-            friendsList.forEach { friend ->
-                val friendEmail = friend["email"].toString()
-                allMessages += ddbbViewModel.getFriendMessages(friendEmail).map {
-                    it + ("friendEmail" to friendEmail)
+            // Combina mensajes de cada amigo y del propio usuario
+            val allMessages = mutableListOf<Map<String, Any>>().apply {
+                friendsList.forEach { friend ->
+                    val friendEmail = friend["email"].toString()
+                    addAll(ddbbViewModel.getFriendMessages(friendEmail)
+                        .map { it + ("friendEmail" to friendEmail) })
                 }
+                addAll(ddbbViewModel.getFriendMessages(userEmail)
+                    .map { it + ("friendEmail" to userEmail) })
             }
-            allMessages += ddbbViewModel.getFriendMessages(emailData).map {
-                it + ("friendEmail" to emailData)
-            }
-
+            val formatter = DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy")
             messageList = allMessages.sortedByDescending {
-                LocalDateTime.parse(
-                    it["hora"].toString(),
-                    DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy")
-                )
+                LocalDateTime.parse(it["hora"].toString(), formatter)
             }
             isLoading = false
         }
     }
 
-    // Diseño principal de SocialScreen
     Surface(
         modifier = Modifier
             .padding(paddingValues)
@@ -132,8 +144,10 @@ fun SocialScreen(
         color = MaterialTheme.colorScheme.background
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            SocialHeader(onRefresh = { refreshTrigger++ }, navController = navController)
-
+            SocialHeader(
+                onRefresh = { refreshTrigger++ },
+                navController = navController
+            )
             LazyColumn(
                 modifier = Modifier
                     .weight(1f)
@@ -147,27 +161,24 @@ fun SocialScreen(
                         message = message["texto"].toString(),
                         hora = message["hora"].toString(),
                         messageID = message["messageID"].toString(),
-                        ddbbViewModel,
-                        isDarkMode = isDarkTheme, // Se ajusta el fondo según el tema
+                        ddbbViewModel = ddbbViewModel,
+                        isDarkMode = isDarkTheme,
                         onMessageDeleted = { refreshTrigger++ }
                     )
                 }
             }
-
             CommentBar(
                 comment = comment,
                 onCommentChange = { newText ->
-                    if (newText.length <= commentMaxLength) {
-                        comment = newText
-                    }
+                    if (newText.length <= commentMaxLength) comment = newText
                 },
                 onSendClick = {
-                    email?.let {
+                    email?.let { userEmail ->
                         val formattedDateTime = LocalDateTime.now().format(
                             DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy")
                         )
                         coroutineScope.launch {
-                            ddbbViewModel.publishMessage(it, comment, formattedDateTime)
+                            ddbbViewModel.publishMessage(userEmail, comment, formattedDateTime)
                             comment = ""
                             refreshTrigger++
                         }
@@ -176,7 +187,6 @@ fun SocialScreen(
                 commentMaxLength = commentMaxLength
             )
         }
-
         if (isLoading) {
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -196,6 +206,7 @@ fun SocialHeader(
     onRefresh: () -> Unit,
     navController: NavController
 ) {
+    // Encabezado de la pantalla que muestra el título y botones para navegación y refresco
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -208,27 +219,26 @@ fun SocialHeader(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        // Texto en la parte izquierda
+        // Título principal del timeline
         Text(
             text = "Timeline",
             style = MaterialTheme.typography.headlineLarge,
             color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Start
         )
-
-        // Botones agrupados a la derecha
+        // Grupo de botones: navegación a la lista de amigos y refresco de datos
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { navController.navigate("friendlist") }) {
                 Icon(
                     imageVector = Icons.Default.AccountCircle,
-                    contentDescription = "Friends",
+                    contentDescription = "Amigos",
                     tint = MaterialTheme.colorScheme.onSurface
                 )
             }
             IconButton(onClick = onRefresh) {
                 Icon(
                     imageVector = Icons.Default.Refresh,
-                    contentDescription = "Refresh",
+                    contentDescription = "Refrescar",
                     tint = MaterialTheme.colorScheme.onSurface
                 )
             }
@@ -248,91 +258,83 @@ fun SocialCard(
     onMessageDeleted: () -> Unit
 ) {
     val coroutineScope = rememberCoroutineScope()
-
-    val cardBackgroundColor = if (isDarkMode) {
-        MaterialTheme.colorScheme.surfaceVariant // Fondo claro para destacar
-    } else {
-        MaterialTheme.colorScheme.surface
-    }
+    // Fondo según el tema: en modo oscuro se usa un color acorde; en light, blanco.
+    val backgroundColor = if (isDarkMode) MaterialTheme.colorScheme.surfaceVariant else Color.White
 
     Card(
         modifier = Modifier
-            .padding(8.dp)
-            .fillMaxWidth()
-            .shadow(6.dp, RoundedCornerShape(16.dp)),
-        colors = CardDefaults.cardColors(
-            containerColor = cardBackgroundColor
-        ),
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        border = if (isDarkMode) {
-            BorderStroke(1.dp, MaterialTheme.colorScheme.outline) // Borde tenue
-        } else {
-            null
-        }
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            // Cabecera con avatar y hora
+        Column(
+            modifier = Modifier.background(backgroundColor)
+        ) {
+            // Encabezado: avatar, nombre y hora
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
+                // Avatar
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                    ) {
-                        Text(
-                            text = friendEmail.first().toString(),
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            ),
-                            modifier = Modifier.align(Alignment.Center)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Column {
-                        Text(
-                            text = friendEmail,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = hora,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                        )
-                    }
+                    Text(
+                        text = friendEmail.first().toString(),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
                 }
-
-
+                Spacer(modifier = Modifier.width(12.dp))
+                // Nombre y hora
+                Column {
+                    Text(
+                        text = friendEmail,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = hora,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                }
             }
-            Spacer(modifier = Modifier.height(12.dp))
-
+            // Contenido del mensaje
             Text(
                 text = message,
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(bottom = 8.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 18.dp, vertical = 15.dp)
             )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
+            // Divisor para separar el contenido de las acciones
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 12.dp),
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+            )
+            // Fila de acciones (botones)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 8.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.Center
             ) {
                 InteractionButton(
                     icon = Icons.Default.FavoriteBorder,
                     text = "Me gusta",
-                    onClick = { /* Acción */ }
+                    onClick = { /* Acción para 'Me gusta' */ },
+                    isDarkMode = isDarkMode
                 )
+                Spacer(modifier = Modifier.width(16.dp))
                 if (userEmail == friendEmail) {
                     InteractionButton(
                         icon = Icons.Default.Delete,
@@ -342,7 +344,8 @@ fun SocialCard(
                                 ddbbViewModel.deleteMessage(friendEmail, messageID)
                                 onMessageDeleted()
                             }
-                        }
+                        },
+                        isDarkMode = isDarkMode
                     )
                 }
             }
@@ -350,32 +353,38 @@ fun SocialCard(
     }
 }
 
+
+
 @Composable
-fun InteractionButton(
+private fun InteractionButton(
     icon: ImageVector,
     text: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    isDarkMode: Boolean
 ) {
-    Row(
-        modifier = Modifier
-            .clip(RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick)
-            .padding(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center
+    // Selección de color del botón basado en el tema actual
+    val buttonColor = if (isDarkMode)
+        MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+    else
+        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+    // Botón de texto estilizado para acciones de interacción
+    TextButton(
+        onClick = onClick,
+        shape = RoundedCornerShape(20.dp),
+        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = text,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(18.dp)
-        )
-        Spacer(modifier = Modifier.width(4.dp))
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.primary
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = icon,
+                contentDescription = text,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelMedium
+            )
+        }
     }
 }
 
@@ -386,12 +395,13 @@ fun CommentBar(
     onSendClick: () -> Unit,
     commentMaxLength: Int
 ) {
+    // Fuente de interacción para detectar pulsaciones y aplicar animación en el botón de enviar
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed = interactionSource.collectIsPressedAsState().value
-    val sendButtonEnabled = comment.isNotBlank()
     val sendButtonScale by animateFloatAsState(
         targetValue = if (isPressed) 0.9f else 1f,
-        animationSpec = spring(stiffness = Spring.StiffnessMedium), label = ""
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = ""
     )
 
     Column(
@@ -399,6 +409,7 @@ fun CommentBar(
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
+        // Campo de entrada de texto para escribir el comentario
         TextField(
             value = comment,
             onValueChange = onCommentChange,
@@ -409,15 +420,17 @@ fun CommentBar(
                 .padding(top = 8.dp)
                 .shadow(1.dp, RoundedCornerShape(24.dp)),
             trailingIcon = {
+                // Botón de envío, animado según la interacción del usuario
                 IconButton(
                     onClick = onSendClick,
-                    enabled = sendButtonEnabled,
+                    enabled = comment.isNotBlank(),
                     modifier = Modifier.scale(sendButtonScale)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Send,
+                        imageVector = Icons.AutoMirrored.Filled.Send,
                         contentDescription = "Enviar comentario",
-                        tint = if (sendButtonEnabled) MaterialTheme.colorScheme.primary
+                        tint = if (comment.isNotBlank())
+                            MaterialTheme.colorScheme.primary
                         else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                     )
                 }
@@ -434,8 +447,7 @@ fun CommentBar(
             ),
             interactionSource = interactionSource
         )
-
-        // Contador de caracteres
+        // Indicador de la cantidad de caracteres escritos vs. el máximo permitido
         Text(
             text = "${comment.length} / $commentMaxLength",
             style = MaterialTheme.typography.labelSmall,

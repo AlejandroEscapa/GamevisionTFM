@@ -54,6 +54,8 @@ firebaseFirestore = "25.1.2"
 
 [libraries]
 # Android Core
+androidx-animation = { module = "androidx.compose.animation:animation" }
+androidx-animation-core = { module = "androidx.compose.animation:animation-core" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
@@ -64,6 +66,9 @@ androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", versi
 compose-ui = { group = "androidx.compose.ui", name = "ui", version.ref = "compose" }
 compose-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
 compose-material = { group = "androidx.compose.material", name = "material", version.ref = "compose" }
+androidx-compose-animation = { group = "androidx.compose.animation", name = "animation", version.ref = "compose" }
+androidx-compose-animation-core = { group = "androidx.compose.animation", name = "animation-core", version.ref = "compose" }
+androidx-compose-animation-graphics = { group = "androidx.compose.animation", name = "animation-graphics", version.ref = "compose" }
 compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling", version.ref = "compose" }
 compose-activity = { group = "androidx.activity", name = "activity-compose", version = "1.9.3" }
 compose-runtime = { group = "androidx.compose.runtime", name = "runtime", version.ref = "compose" }
@@ -71,9 +76,11 @@ navigation-compose = { module = "androidx.navigation:navigation-compose", versio
 androidx-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
 androidx-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
 runtime-livedata = { group = "androidx.compose.runtime", name = "runtime-livedata", version.ref = "runtimeLivedata" }
+compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended", version.ref = "compose" }
 
 # UI Components
 accompanist-systemuicontroller = { module = "com.google.accompanist:accompanist-systemuicontroller", version.ref = "accompanistSystemuicontroller" }
+androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "compose" }
 coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coilCompose" }
 coil-gif = { module = "io.coil-kt:coil-gif", version = "2.4.0" }
 

@@ -26,9 +26,9 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -49,9 +49,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
@@ -70,6 +73,17 @@ import kotlinx.coroutines.launch
  * Descripción: 
  */
 
+/**
+ * Pantalla con las listas de juegos.
+ *
+ * @param navController Controlador de navegación.
+ * @param isDarkTheme Indica si el tema oscuro está activado.
+ * @param onThemeChange Función para cambiar el tema.
+ * @param paddingValues PaddingValues para ajustar el layout.
+ * @param ddbbViewModel ViewModel para operaciones con la base de datos.
+ * @param searchViewModel ViewModel para obtener detalles del juego.
+ * @param userViewModel ViewModel para datos de usuario.
+ */
 @Composable
 fun GameListScreen(
     navController: NavController,
@@ -82,78 +96,58 @@ fun GameListScreen(
 ) {
     val context = LocalContext.current
     val formFields by userViewModel.formFields.collectAsState()
-    val email = formFields["email"]
+    val firebaseUser = FirebaseAuth.getInstance().currentUser
+    val email = formFields["email"] ?: firebaseUser?.email
 
     var gameIds by remember { mutableStateOf<List<String>?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var sortOption by rememberSaveable { mutableStateOf("Alfabético") }
     var selectedList by rememberSaveable { mutableStateOf("playedlist") }
-
     val gamesMap = searchViewModel.gamesMap
 
+    // Efecto que se ejecuta cuando cambia el email o la lista seleccionada
     LaunchedEffect(email, selectedList) {
         email?.let { emailData ->
+            // Se refresca la información del usuario
             ddbbViewModel.fetchUserData(emailData)
             val userData = ddbbViewModel.userData.value
 
-            // Extraer información del perfil y actualizar el ViewModel
+            // Actualiza la información en el UserViewModel
             userViewModel.onFormFieldChange("nameSurname", userData?.get("nameSurname") ?: "")
             userViewModel.onFormFieldChange("username", userData?.get("username") ?: "")
             userViewModel.onFormFieldChange("description", userData?.get("description") ?: "")
             userViewModel.onFormFieldChange("country", userData?.get("country") ?: "")
             userViewModel.onFormFieldChange("email", emailData)
 
-            // Actualizar datos desde Firebase Auth
-            FirebaseAuth.getInstance().currentUser?.let { firebaseUser ->
-                userViewModel.onFormFieldChange(
-                    "username",
-                    firebaseUser.displayName?.replace("\\s".toRegex(), "") ?: ""
-                )
-                userViewModel.onFormFieldChange("nameSurname", firebaseUser.displayName ?: "")
-                userViewModel.onFormFieldChange("email", firebaseUser.email ?: "")
-            }
-
+            // Obtiene los juegos del usuario en función de la lista seleccionada
             val gamesData = ddbbViewModel.getUserGames(emailData, selectedList)
             val newGameIds = gamesData.mapNotNull { it["gameId"] as? String }
+            // Si la lista es "history", se limita a 20 elementos para rendimiento
+            val limitedGameIds = if (selectedList == "history") newGameIds.take(20) else newGameIds
 
-            newGameIds.map { gameId ->
+            // Se obtiene de forma asíncrona los detalles de cada juego
+            limitedGameIds.map { gameId ->
                 async { searchViewModel.fetchAndStoreGameDetails(gameId.toInt()) }
             }.awaitAll()
 
-            gameIds = newGameIds
+            gameIds = limitedGameIds
             isLoading = false
         }
     }
 
-
+    // Se genera una lista de IDs ordenada según la opción de ordenamiento
     val sortedGameIds by remember {
         derivedStateOf {
-            when {
-                gameIds == null -> null
-                gameIds!!.isEmpty() -> emptyList()
-                else -> {
-                    when (sortOption) {
-                        "Alfabético" -> gameIds!!.sortedBy { gamesMap[it.toInt()]?.name ?: "" }
-                        "Rating (Asc.)" -> gameIds!!.sortedBy {
-                            gamesMap[it.toInt()]?.rating ?: 0.0
-                        }
-
-                        "Rating (Desc.)" -> gameIds!!.sortedByDescending {
-                            gamesMap[it.toInt()]?.rating ?: 0.0
-                        }
-
-                        "Recomendado (Asc.)" -> gameIds!!.sortedBy {
-                            gamesMap[it.toInt()]?.ratingsCount ?: 0
-                        }
-
-                        "Recomendado (Desc.)" -> gameIds!!.sortedByDescending {
-                            gamesMap[it.toInt()]?.ratingsCount ?: 0
-                        }
-
-                        else -> gameIds!!
-                    }
+            gameIds?.let { ids ->
+                if (ids.isEmpty()) emptyList() else when (sortOption) {
+                    "Alfabético" -> ids.sortedBy { gamesMap[it.toInt()]?.name ?: "" }
+                    "Rating (Asc.)" -> ids.sortedBy { gamesMap[it.toInt()]?.rating ?: 0.0 }
+                    "Rating (Desc.)" -> ids.sortedByDescending { gamesMap[it.toInt()]?.rating ?: 0.0 }
+                    "Recomendado (Asc.)" -> ids.sortedBy { gamesMap[it.toInt()]?.ratingsCount ?: 0 }
+                    "Recomendado (Desc.)" -> ids.sortedByDescending { gamesMap[it.toInt()]?.ratingsCount ?: 0 }
+                    else -> ids
                 }
-            }
+            } ?: emptyList()
         }
     }
 
@@ -163,21 +157,22 @@ fun GameListScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(10.dp)
-                    .background(
-                        MaterialTheme.colorScheme.surface,
-                        shape = MaterialTheme.shapes.medium
-                    )
-                    .padding(16.dp, 10.dp, 16.dp, 0.dp),
+                    .background(MaterialTheme.colorScheme.surface, shape = MaterialTheme.shapes.medium)
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Start
             ) {
                 HeaderTitle(selectedList)
                 Spacer(modifier = Modifier.width(8.dp))
                 SelectListButton(
-                    ddbbViewModel,
-                    onListSelected = { selectedList = it; isLoading = true })
+                    ddbbViewModel = ddbbViewModel,
+                    onListSelected = { selected ->
+                        selectedList = selected
+                        isLoading = true
+                    }
+                )
                 Spacer(modifier = Modifier.weight(1f))
-                SortMenuButton(sortOption) { sortOption = it }
+                SortMenuButton(currentSortOption = sortOption) { sortOption = it }
             }
         },
         content = { innerPadding ->
@@ -188,23 +183,28 @@ fun GameListScreen(
             ) {
                 when {
                     isLoading -> LoadingIndicator()
-                    sortedGameIds == null -> Unit
-                    sortedGameIds!!.isEmpty() -> GameListEmptyState()
+                    sortedGameIds.isEmpty() -> GameListEmptyState()
                     else -> GameList(
-                        sortedGameIds!!,
-                        gamesMap,
-                        navController,
-                        searchViewModel,
-                        context,
-                        ddbbViewModel,
-                        userViewModel
-                    ) { deletedGameId -> gameIds = gameIds!!.filter { it != deletedGameId } }
+                        gameIds = sortedGameIds,
+                        gamesMap = gamesMap,
+                        navController = navController,
+                        searchViewModel = searchViewModel,
+                        context = context,
+                        ddbbViewModel = ddbbViewModel,
+                        userViewModel = userViewModel,
+                        onGameDeleted = { deletedGameId ->
+                            gameIds = gameIds?.filter { it != deletedGameId }
+                        }
+                    )
                 }
             }
         }
     )
 }
 
+/**
+ * Indicador de carga para la pantalla de juegos.
+ */
 @Composable
 fun LoadingIndicator() {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -216,6 +216,9 @@ fun LoadingIndicator() {
     }
 }
 
+/**
+ * Estado vacío de la lista de juegos.
+ */
 @Composable
 fun GameListEmptyState() {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -226,7 +229,7 @@ fun GameListEmptyState() {
                 modifier = Modifier.size(64.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = "No tienes juegos añadidos aún",
                 style = MaterialTheme.typography.titleMedium,
@@ -250,19 +253,19 @@ fun GameList(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(bottom = 80.dp) // Añade un padding adicional en la parte inferior
+            .padding(bottom = 80.dp) // Additional bottom padding
     ) {
         items(gameIds) { gameId ->
             val game = gamesMap[gameId.toInt()]
             GameCard(
-                navController,
-                game,
-                gameId,
-                searchViewModel,
-                context,
-                ddbbViewModel,
-                userViewModel,
-                onGameDeleted
+                navController = navController,
+                game = game,
+                gameId = gameId,
+                searchViewModel = searchViewModel,
+                context = context,
+                ddbbViewModel = ddbbViewModel,
+                userViewModel = userViewModel,
+                onGameDeleted = onGameDeleted
             )
         }
     }
@@ -276,7 +279,11 @@ fun HeaderTitle(selectedList: String) {
         "history" -> "Historial de juegos"
         else -> "Juegos jugados"
     }
-    Text(text = title, style = MaterialTheme.typography.headlineLarge, textAlign = TextAlign.Start)
+    Text(
+        text = title,
+        style = MaterialTheme.typography.headlineLarge,
+        textAlign = TextAlign.Start
+    )
 }
 
 @Composable
@@ -294,12 +301,12 @@ fun GameCard(
     val formFields by userViewModel.formFields.collectAsState()
     val email = formFields["email"]
 
-    // Indicador de carga si no hay datos del juego
+    // Show loading state if game data isn’t available yet
     if (game == null) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 10.dp, horizontal = 16.dp)
+                .padding(8.dp)
                 .height(200.dp),
             contentAlignment = Alignment.Center
         ) {
@@ -314,65 +321,75 @@ fun GameCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 10.dp, horizontal = 16.dp)
-            .height(250.dp) // Mayor altura para distribución
+            .padding(8.dp)
+            .height(200.dp)
             .clickable { navController.navigate("gameDetails/${game.id}") },
         shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // Imagen de fondo que ocupa la parte superior
+            // Background image
             AsyncImage(
                 model = game.backgroundImage,
                 contentDescription = "Imagen del juego",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(180.dp) // Imagen ocupa la mitad superior
-                    .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(16.dp))
             )
-
-            // Contenedor blanco para el texto en la parte inferior
+            // Bottom panel with game details
             Column(
                 modifier = Modifier
+                    .align(Alignment.BottomStart)
                     .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
                     .background(
-                        color = MaterialTheme.colorScheme.surface,
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
                         shape = RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp)
                     )
-                    .padding(16.dp) // Espaciado interno
+                    .padding(12.dp)
             ) {
+                // Game name
+                Text(
+                    text = game.name,
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                // Row with year, genres and delete button
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        // Título del juego
+                    Column {
                         Text(
-                            text = game.name,
-                            style = MaterialTheme.typography.headlineSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            ),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis // Recorta el texto si es muy largo
+                            text = buildAnnotatedString {
+                                withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                                    append("Año: ")
+                                }
+                                append(game.released.substring(0, 4))
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-
-                        // Año de lanzamiento del juego
-                        Text(
-                            text = "Lanzamiento: ${game.released.substring(0, 4)}",
-                            style = MaterialTheme.typography.bodyMedium.copy(
+                        if (game.genres.isNotEmpty()) {
+                            Text(
+                                text = buildAnnotatedString {
+                                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                                        append("Géneros: ")
+                                    }
+                                    append(game.genres.joinToString(", ") { it.name })
+                                },
+                                style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                        )
+                        }
                     }
-                    // Botón de eliminación
+                    // Delete icon button with functionality
                     IconButton(
                         onClick = {
                             coroutineScope.launch {
@@ -382,7 +399,9 @@ fun GameCard(
                                 }
                             }
                         },
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier
+                            .size(32.dp)
+                            .padding(bottom = 10.dp, end = 10.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Delete,
@@ -396,7 +415,6 @@ fun GameCard(
         }
     }
 }
-
 
 @Composable
 fun SelectListButton(
@@ -423,7 +441,11 @@ fun SelectListButton(
             listas.forEach { (displayName, param) ->
                 DropdownMenuItem(
                     text = { Text(displayName) },
-                    onClick = { expanded = false; onListSelected(param) })
+                    onClick = {
+                        expanded = false
+                        onListSelected(param)
+                    }
+                )
             }
         }
     }
@@ -455,12 +477,16 @@ fun SortMenuButton(currentSortOption: String, onSortSelected: (String) -> Unit) 
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Divider()
+                HorizontalDivider()
             }
             sortOptions.forEach { option ->
                 DropdownMenuItem(
                     text = { Text(option) },
-                    onClick = { expanded = false; onSortSelected(option) })
+                    onClick = {
+                        expanded = false
+                        onSortSelected(option)
+                    }
+                )
             }
         }
     }

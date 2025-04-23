@@ -42,6 +42,19 @@ import kotlinx.coroutines.launch
  * Descripción: 
  */
 
+/**
+ * Pantalla de edición de perfil.
+ *
+ * Esta función muestra la interfaz para editar el perfil del usuario,
+ * incluyendo los campos de texto y un botón para guardar los cambios.
+ *
+ * @param isDarkTheme: Indica si el tema es oscuro.
+ * @param paddingValues: Valores de relleno para el diseño.
+ * @param navController: Controlador de navegación.
+ * @param userViewModel: ViewModel para el usuario.
+ * @param ddbbViewModel: ViewModel para la base de datos.
+ */
+
 @Composable
 fun EditProfileScreen(
     isDarkTheme: Boolean,
@@ -50,7 +63,9 @@ fun EditProfileScreen(
     userViewModel: UserViewModel,
     ddbbViewModel: DDBBViewModel
 ) {
+    // Se observa el estado de los campos del formulario en el ViewModel del usuario.
     val loginFields by userViewModel.formFields.collectAsState()
+    // Se crea un scope para lanzar corrutinas.
     val coroutineScope = rememberCoroutineScope()
 
     Column(
@@ -60,80 +75,95 @@ fun EditProfileScreen(
             .verticalScroll(rememberScrollState())
     ) {
         Spacer(modifier = Modifier.height(150.dp))
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(top = 16.dp),
-            shape = RoundedCornerShape(32.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant
-            )
-        ) {
-            Column(
-                modifier = Modifier
-                    .padding(20.dp)
-                    .fillMaxWidth()
-            ) {
-                listOf(
-                    "nameSurname" to "Nombre completo",
-                    "username" to "Nombre de usuario",
-                    "description" to "Descripción",
-                    "country" to "País"
-                ).forEach { (fieldKey, label) ->
-                    ProfileField(
-                        fieldKey = fieldKey,
-                        value = loginFields[fieldKey].orEmpty(),
-                        userViewModel = userViewModel
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
-
-                Button(
-                    onClick = {
-                        val email = loginFields["email"].orEmpty()
-                        val updatedFields = hashMapOf(
-                            "nameSurname" to loginFields["nameSurname"],
-                            "username" to loginFields["username"],
-                            "description" to loginFields["description"],
-                            "country" to loginFields["country"]
-                        )
-
-                        coroutineScope.launch {
-                            ddbbViewModel.updateUser(email, updatedFields)
-                            navController?.navigate("profile")
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    )
-                ) {
-                    Text("Guardar cambios", style = MaterialTheme.typography.labelLarge)
-                }
+        // Se utiliza un componente personalizado que agrupa los campos del perfil.
+        ProfileCard(loginFields, userViewModel) { updatedFields ->
+            // Al hacer clic en guardar, se lanza una corrutina para actualizar la información del usuario.
+            coroutineScope.launch {
+                // Actualizar la información en la base de datos
+                ddbbViewModel.updateUser(loginFields["email"].orEmpty(), updatedFields)
+                // Antes de navegar hacia atrás, se marca el flag de actualización en la pantalla anterior.
+                navController?.previousBackStackEntry
+                    ?.savedStateHandle
+                    ?.set("profileUpdate", true)
+                // Se navega de vuelta a la pantalla de perfil.
+                navController?.popBackStack()
             }
         }
     }
 }
 
+/**
+ * Tarjeta de perfil.
+ *
+ * Este componente encapsula la interfaz que contiene los campos de edición del perfil
+ * y el botón para guardar los cambios.
+ */
+@Composable
+fun ProfileCard(
+    loginFields: Map<String, String>,
+    userViewModel: UserViewModel,
+    onSaveClick: (HashMap<String, String?>) -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 16.dp),
+        shape = RoundedCornerShape(32.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            // Se itera sobre los campos del perfil para generar cada campo de texto.
+            listOf(
+                "nameSurname" to "Nombre completo",
+                "username" to "Nombre de usuario",
+                "description" to "Descripción",
+                "country" to "País"
+            ).forEach { (fieldKey, _) ->
+                ProfileField(
+                    fieldKey = fieldKey,
+                    value = loginFields[fieldKey].orEmpty(),
+                    userViewModel = userViewModel
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+            // Botón para guardar los cambios realizados en el perfil.
+            SaveButton {
+                onSaveClick(
+                    hashMapOf(
+                        "nameSurname" to loginFields["nameSurname"],
+                        "username" to loginFields["username"],
+                        "description" to loginFields["description"],
+                        "country" to loginFields["country"]
+                    )
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Campo de texto para editar el perfil.
+ *
+ * Muestra un campo de texto personalizado con una etiqueta y un ícono
+ * dependiendo del campo que se esté editando.
+ */
 @Composable
 fun ProfileField(
     fieldKey: String,
     value: String,
     userViewModel: UserViewModel
 ) {
-    val labelText = when (fieldKey) {
-        "nameSurname" -> "Introduce tu nombre completo"
-        "username" -> "Introduce tu nombre de usuario"
-        "description" -> "Añade una descripción"
-        "country" -> "Indica tu país"
-        else -> ""
-    }
+    // Mapa que relaciona cada campo con su etiqueta y su ícono correspondiente.
+    val fieldData = mapOf(
+        "nameSurname" to ("Introduce tu nombre completo" to Icons.Outlined.AccountCircle),
+        "username" to ("Introduce tu nombre de usuario" to Icons.Outlined.Person),
+        "description" to ("Añade una descripción" to Icons.Outlined.Info),
+        "country" to ("Indica tu país" to Icons.Outlined.LocationOn)
+    )
+
+    // Se obtienen la etiqueta y el ícono según el campo; se usa un valor por defecto si no se encuentra.
+    val (labelText, icon) = fieldData[fieldKey] ?: ("" to Icons.Outlined.Edit)
 
     OutlinedTextField(
         value = value,
@@ -149,13 +179,7 @@ fun ProfileField(
         },
         leadingIcon = {
             Icon(
-                imageVector = when (fieldKey) {
-                    "nameSurname" -> Icons.Outlined.AccountCircle
-                    "username" -> Icons.Outlined.Person
-                    "description" -> Icons.Outlined.Info
-                    "country" -> Icons.Outlined.LocationOn
-                    else -> Icons.Outlined.Edit
-                },
+                imageVector = icon,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
             )
@@ -163,9 +187,35 @@ fun ProfileField(
     )
 }
 
+/**
+ * Botón de guardado.
+ *
+ * Componente de botón que muestra la acción para guardar los cambios del perfil.
+ */
+@Composable
+fun SaveButton(onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(50.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary
+        )
+    ) {
+        Text("Guardar cambios", style = MaterialTheme.typography.labelLarge)
+    }
+}
+
+/**
+ * Vista previa de la pantalla de edición de perfil.
+ */
 @Preview(showBackground = true)
 @Composable
 fun EditProfileScreenPreview() {
+    // Nota: En esta vista previa se pasan instancias dummy de los ViewModels.
     EditProfileScreen(
         isDarkTheme = false,
         paddingValues = PaddingValues(),

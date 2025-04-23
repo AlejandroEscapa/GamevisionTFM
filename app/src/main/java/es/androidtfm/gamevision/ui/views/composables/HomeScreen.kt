@@ -39,9 +39,19 @@ import kotlinx.coroutines.delay
  * Descripción: 
  */
 
+/**
+ * Pantalla de inicio de la aplicación.
+ *
+ * @param isDarkTheme Indica si el tema oscuro está activado.
+ * @param onThemeChange Función para cambiar el tema.
+ * @param navController Controlador de navegación.
+ * @param isGuest Indica si el usuario es invitado.
+ * @param onGuestStatusChange Función para cambiar el estado de invitado.
+ */
+
 @Composable
 fun HomeScreen(
-    isDarkTheme: Boolean?, // Puede ser null mientras se carga
+    isDarkTheme: Boolean?,
     onThemeChange: (Boolean) -> Unit,
     navController: NavHostController,
     isGuest: Boolean,
@@ -52,7 +62,7 @@ fun HomeScreen(
 
     // Efecto para actualizar el estado cuando el tema esté listo
     LaunchedEffect(Unit) {
-        delay(1000)
+        delay(1000) // Simula un retraso de carga
         isThemeLoaded = true
     }
 
@@ -63,11 +73,13 @@ fun HomeScreen(
         // Asegúrate de que isDarkTheme no sea null
         val theme = isDarkTheme!!
 
+        // Diseño principal de la pantalla de inicio
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp)
         ) {
+            // Botón para cambiar el tema
             IconButton(
                 onClick = { onThemeChange(!theme) }, // Usa el valor no nulo
                 modifier = Modifier.align(Alignment.TopCenter)
@@ -81,9 +93,11 @@ fun HomeScreen(
                 )
             }
 
+            // Contenido de la pantalla de inicio
             Column {
                 Spacer(modifier = Modifier.height(120.dp))
 
+                // Logo de la aplicación
                 Image(
                     painter = painterResource(
                         id = if (theme) R.drawable.gamevisionnight
@@ -92,6 +106,7 @@ fun HomeScreen(
                     contentDescription = "Logo"
                 )
 
+                // Botón para iniciar sesión
                 Button(
                     onClick = {
                         navController.navigate("login") {
@@ -110,6 +125,7 @@ fun HomeScreen(
                     Text(text = "Iniciar sesión")
                 }
 
+                // Botón para continuar como invitado
                 Button(
                     onClick = {
                         onGuestStatusChange(true)
@@ -131,6 +147,8 @@ fun HomeScreen(
 
 @Composable
 fun LoadingScreen() {
+
+    // Pantalla de carga con un indicador circular
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -146,6 +164,7 @@ fun HomeScreenPreview() {
     val context = LocalContext.current
     val navController = rememberNavController()
 
+    // Previsualización de la pantalla de inicio
     HomeScreen(
         isDarkTheme = false, // Simula un tema cargado
         onThemeChange = { /* No necesitas implementación en la vista previa */ },
