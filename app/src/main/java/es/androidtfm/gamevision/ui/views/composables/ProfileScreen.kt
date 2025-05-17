@@ -62,6 +62,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.google.firebase.auth.FirebaseAuth
@@ -154,19 +155,30 @@ fun ProfileScreen(
                     )
             ) {
                 // Botón para cambiar el tema
-                IconButton(
-                    onClick = { onThemeChange(!isDarkTheme) },
+                val iconTextColor = if (isDarkTheme) Color.White else Color.Black
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
                         .align(Alignment.Center)
                         .padding(16.dp)
                 ) {
-                    Icon(
-                        painter = painterResource(
-                            id = if (isDarkTheme) R.drawable.daynightthemewhite
-                            else R.drawable.daynightthemeblack
-                        ),
-                        contentDescription = "Theme",
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    IconButton(
+                        onClick = { onThemeChange(!isDarkTheme) }
+                    ) {
+                        Icon(
+                            painter = painterResource(
+                                id = if (isDarkTheme) R.drawable.daynightthemewhite
+                                else R.drawable.daynightthemeblack
+                            ),
+                            contentDescription = "Theme",
+                            tint = iconTextColor
+                        )
+                    }
+                    Text(
+                        text = if (isDarkTheme) "Modo noche" else "Modo día",
+                        fontSize = 12.sp,
+                        color = iconTextColor
                     )
                 }
             }

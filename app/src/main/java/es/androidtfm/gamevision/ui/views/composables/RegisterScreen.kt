@@ -51,6 +51,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import es.androidtfm.gamevision.R
 import es.androidtfm.gamevision.viewmodel.DDBBViewModel
@@ -106,7 +107,7 @@ fun RegisterScreen(
             // Encabezado de la pantalla de registro
             LoginHeader(
                 isDarkTheme = isDarkTheme,
-                title = "Crear Cuenta",
+                title = "Registro",
                 subtitle = "Regístrate para comenzar"
             )
 
@@ -293,41 +294,24 @@ private fun LoginHeader(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 16.dp), // Reducido de 32.dp
+            .padding(top = 60.dp), // Reducido de 32.dp
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Image(
-            modifier = Modifier
-                .size(100.dp)
-                .clip(CircleShape)
-                .border(
-                    width = 1.5.dp,
-                    color = MaterialTheme.colorScheme.primary,
-                    shape = CircleShape
-                )
-                .padding(6.dp),
-            painter = painterResource(
-                id = if (isDarkTheme) R.drawable.gamevisionnight
-                else R.drawable.gamevision2
-            ),
-            contentDescription = "Logo",
-            contentScale = ContentScale.Fit
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(16.dp)) // Igual que en LoginScreen
         Text(
             text = title,
-            style = MaterialTheme.typography.headlineMedium.copy(
+            style = MaterialTheme.typography.headlineLarge.copy(
                 fontWeight = FontWeight.Black,
                 color = MaterialTheme.colorScheme.primary
             )
         )
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(10.dp)) // Mismo espacio que en LoginScreen
         Text(
             text = subtitle,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
         )
+        Spacer(modifier = Modifier.height(10.dp)) // Mismo espacio que en LoginScreen
     }
 }
 

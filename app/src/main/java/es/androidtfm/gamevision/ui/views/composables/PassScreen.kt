@@ -41,6 +41,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import es.androidtfm.gamevision.R
 import es.androidtfm.gamevision.viewmodel.UserViewModel
@@ -121,8 +122,12 @@ fun PassScreen(
                         value = formFields["email"] ?: "",
                         onValueChange = { userViewModel.onFormFieldChange("email", it) },
                         label = {
-                            Text(text = "Introduce tu correo: ")
+                            Text(
+                                text = "Introduce tu correo: ",
+                                fontSize = 14.sp
+                            )
                         },
+
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         leadingIcon = {
@@ -187,27 +192,9 @@ private fun LoginHeader(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 16.dp), // Mismo padding vertical que en LoginScreen
+            .padding(top = 110.dp), // Mismo padding vertical que en LoginScreen
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Image(
-            modifier = Modifier
-                .size(120.dp)
-                .clip(CircleShape)
-                .border(
-                    width = 2.dp,
-                    color = MaterialTheme.colorScheme.primary,
-                    shape = CircleShape
-                )
-                .padding(8.dp),
-            painter = painterResource(
-                id = if (isDarkTheme) R.drawable.gamevisionnight
-                else R.drawable.gamevision2
-            ),
-            contentDescription = "Logo",
-            contentScale = ContentScale.Fit
-        )
-
         Spacer(modifier = Modifier.height(16.dp)) // Igual que en LoginScreen
         Text(
             text = title,
@@ -216,12 +203,13 @@ private fun LoginHeader(
                 color = MaterialTheme.colorScheme.primary
             )
         )
-        Spacer(modifier = Modifier.height(8.dp)) // Mismo espacio que en LoginScreen
+        Spacer(modifier = Modifier.height(10.dp)) // Mismo espacio que en LoginScreen
         Text(
             text = subtitle,
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
         )
+        Spacer(modifier = Modifier.height(10.dp)) // Mismo espacio que en LoginScreen
     }
 }
 

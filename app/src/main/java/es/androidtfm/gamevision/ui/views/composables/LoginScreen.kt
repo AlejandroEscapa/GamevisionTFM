@@ -65,6 +65,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.google.firebase.auth.FirebaseAuth
 import es.androidtfm.gamevision.R
@@ -72,6 +73,7 @@ import es.androidtfm.gamevision.viewmodel.DDBBViewModel
 import es.androidtfm.gamevision.viewmodel.GoogleViewModel
 import es.androidtfm.gamevision.viewmodel.UserViewModel
 import kotlinx.coroutines.launch
+import java.nio.file.WatchEvent
 
 /*
  * Autor: Alejandro Olivares Escapa
@@ -182,27 +184,9 @@ private fun LoginHeader(isDarkTheme: Boolean) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 16.dp), // Ajustado a 0.dp
+            .padding(top = 90.dp), // Ajustado a 0.dp
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Image(
-            modifier = Modifier
-                .size(120.dp)
-                .clip(CircleShape)
-                .border(
-                    width = 2.dp,
-                    color = MaterialTheme.colorScheme.primary,
-                    shape = CircleShape
-                )
-                .padding(8.dp),
-            painter = painterResource(
-                id = if (isDarkTheme) R.drawable.gamevisionnight
-                else R.drawable.gamevision2
-            ),
-            contentDescription = "Logo",
-            contentScale = ContentScale.Fit
-        )
-
         Spacer(modifier = Modifier.height(16.dp)) // Mantener este espacio si es necesario
         Text(
             text = "Bienvenido",
@@ -211,12 +195,13 @@ private fun LoginHeader(isDarkTheme: Boolean) {
                 color = MaterialTheme.colorScheme.primary
             )
         )
-        Spacer(modifier = Modifier.height(8.dp)) // Mantener este espacio si es necesario
+        Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = "Inicia sesión para continuar",
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
         )
+        Spacer(modifier = Modifier.height(10.dp))
     }
 }
 
@@ -284,7 +269,9 @@ private fun LoginForm(
                 value = formFields["email"] ?: "",
                 onValueChange = onEmailChange,
                 label = {
-                    Text(text = "Introduce tu correo: ")
+                    Text(
+                        text = "Introduce el email: ",
+                        fontSize = 14.sp)
                 },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
@@ -304,7 +291,10 @@ private fun LoginForm(
                 value = formFields["password"] ?: "",
                 onValueChange = onPasswordChange,
                 label = {
-                    Text(text = "Introduce tu contraseña: ")
+                    Text(
+                        text = "Introduce la contraseña:",
+                        fontSize = 14.sp // Cambia este valor según el tamaño que quieras
+                    )
                 },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),

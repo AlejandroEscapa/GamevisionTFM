@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import es.androidtfm.gamevision.R
@@ -80,16 +81,24 @@ fun HomeScreen(
                 .padding(16.dp)
         ) {
             // Botón para cambiar el tema
-            IconButton(
-                onClick = { onThemeChange(!theme) }, // Usa el valor no nulo
-                modifier = Modifier.align(Alignment.TopCenter)
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.align(Alignment.TopCenter).padding(vertical = 15.dp)
             ) {
-                Image(
-                    painter = painterResource(
-                        id = if (theme) R.drawable.daynightthemewhite
-                        else R.drawable.daynightthemeblack
-                    ),
-                    contentDescription = "Cambiar Tema"
+                IconButton(
+                    onClick = { onThemeChange(!theme) }
+                ) {
+                    Image(
+                        painter = painterResource(
+                            id = if (theme) R.drawable.daynightthemewhite
+                            else R.drawable.daynightthemeblack
+                        ),
+                        contentDescription = "Cambiar Tema"
+                    )
+                }
+                Text(
+                    text = if (theme) "Modo día" else "Modo noche",
+                    fontSize = 12.sp
                 )
             }
 
